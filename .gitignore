@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.DS_Store
+.env
+*.log
+settings.json
+.prettierrc
+.eslintrc.js
+md/
+keys
+*.xlsx
+*.csv

@@ -1,0 +1,3218 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Karhuno WebMatrix</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔮</text></svg>">
+    <meta charset="UTF-8">
+    <!-- Библиотеки -->
+    <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script> 
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    
+    <!-- Стили -->
+    <style>
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            color: #2c3e50;
+            line-height: 1.6;
+            background-color: #f8f9fa;
+            padding: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+            box-sizing: border-box; 
+        .container {
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            padding: 24px;
+            width: 100%;
+            margin-top: 20px;
+            box-sizing: border-box; 
+        }
+        .input-section, .output-section {
+            flex: 1;
+        }
+        textarea {
+            width: 100%;
+            height: 150px;
+            margin-bottom: 10px;
+            font-family: monospace;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 12px;
+            font-size: 14px;
+            transition: border-color 0.2s ease;
+        }
+        textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
+            border-color: #a5d6a7;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(165, 214, 167, 0.1);
+        }
+        .result {
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin-bottom: 10px;
+            white-space: pre-wrap;
+        }
+        .error { color: red; }
+        .success { color: green; }
+        #status {
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        .controls {
+            margin-bottom: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            margin-right: 10px;
+        }
+        #results {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        .settings-panel {
+            border: 1px solid #ccc;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .collapsible {
+            background-color: white;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            transition: all 0.2s ease;
+            color: #444;
+            cursor: pointer;
+            padding: 18px;
+            width: 100%;
+            text-align: left;
+            outline: none;
+            font-size: 15px;
+        }
+        .active, .collapsible:hover {
+            background-color: #f8f9fa;
+        }
+        .content {
+            padding: 0 18px;
+            display: none;
+            overflow: hidden;
+            background-color: #f1f1f1;
+        }
+        .progress-bar {
+            height: 8px;
+            border-radius: 4px;
+            background-color: #f1f3f5;
+            margin: 20px 0;
+            width: 100%;
+        }
+        
+        .progress-bar-fill {
+            height: 100%;
+            background-color: #a5d6a7;
+            transition: width 0.5s ease-in-out;
+            border-radius: 4px;
+        }
+        
+        .readme-panel {
+            background-color: #f8f9fa;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+        
+        .readme-panel h2 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+        }
+        
+        .readme-panel ol {
+            padding-left: 20px;
+        }
+        
+        .readme-panel li {
+            margin-bottom: 10px;
+        }
+        
+        .readme-panel ul {
+            padding-left: 20px;
+            margin-top: 5px;
+        }
+        
+        .readme-panel a {
+            color: #3498db;
+            text-decoration: none;
+        }
+        
+        .readme-panel a:hover {
+            text-decoration: underline;
+        }
+        .table-container {
+            min-width: 100%;
+            overflow-x: auto;
+            margin-top: 20px;
+            border: 1px solid #ddd;
+        }
+        
+        #resultsTable {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        #resultsTable thead {
+            position: sticky;
+            top: 0;
+            background: white;
+            z-index: 1;
+        }
+        
+        #resultsTable th, #resultsTable td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        
+        #resultsTable th {
+            background-color: #f8f9fa;
+            color: #495057;
+            font-weight: 600;
+            padding: 12px 16px;
+        }
+        
+        #resultsTable td {
+            padding: 10px 16px;
+            color: #2c3e50;
+            border: 1px solid #ddd;
+            max-width: 300px; /* Максимальная ширина ячейки */
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        /* Стили для ячеек при наведении */
+        #resultsTable td:hover {
+            white-space: normal;
+            word-wrap: break-word;
+            position: relative;
+            background-color: #f8f9fa;
+            z-index: 1;
+        }
+        
+        /* Кастомные скроллбары */
+        .table-container::-webkit-scrollbar {
+            width: 12px;
+            height: 12px;
+        }
+
+        .table-container::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 6px;
+        }
+
+        .table-container::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 6px;
+            border: 3px solid #f1f1f1;
+        }
+
+        .table-container::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        /* Стили для строк с разными статусами */
+        .processing-row {
+            background-color: #fff8e1 !important;
+        }
+
+        .error-row {
+            background-color: #ffebee !important;
+        }
+
+        .success-row {
+            background-color: #f1f8e9 !important;
+        }
+
+        /* Анимация для активной строки */
+        @keyframes pulse {
+            0% { background-color: #fff3cd; }
+            50% { background-color: #ffecb5; }
+            100% { background-color: #fff3cd; }
+        }
+        .button-group {
+            margin: 25px 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            width: 100%;
+            padding: 0;
+        }
+
+        .button-group button,
+        .button-group label.button {
+            padding: 10px 18px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            border: 1px solid transparent;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 150px;
+        }
+
+        /* Кнопка загрузки (делаем более заметной как первый шаг) */
+        .button-group .upload {
+            background-color: #e3f2fd;
+            color: #1565c0;
+            border-color: #bbdefb;
+        }
+        .button-group .upload:hover {
+            background-color: #bbdefb;
+            border-color: #90caf9;
+        }
+
+        /* Кнопка импорта пресетов */
+        .button-group label.button.upload {
+            background-color: #f3e5f5;
+            color: #6a1b9a;
+            border-color: #e1bee7;
+            cursor: pointer;
+        }
+        .button-group label.button.upload:hover {
+            background-color: #e1bee7;
+            border-color: #ce93d8;
+        }
+
+        /* Волшебная кнопка */
+        .button-group .magic {
+            background-color: #f3e5f5;
+            color: #6a1b9a;
+            border-color: #e1bee7;
+        }
+        .button-group .magic:hover {
+            background-color: #e1bee7;
+            border-color: #ce93d8;
+        }
+
+        /* Основные де��ствия */
+        .button-group .primary {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+            border-color: #c8e6c9;
+        }
+        .button-group .primary:hover {
+            background-color: #c8e6c9;
+            border-color: #a5d6a7;
+        }
+
+        /* Кнопка остановки */
+        .button-group .warning {
+            background-color: #ffebee;
+            color: #c62828;
+            border-color: #ffcdd2;
+        }
+        .button-group .warning:hover {
+            background-color: #ffcdd2;
+            border-color: #ef9a9a;
+        }
+
+        /* Кнопки выгрузки */
+        .button-group .download {
+            background-color: #e3f2fd;
+            color: #1565c0;
+            border-color: #bbdefb;
+        }
+        .button-group .download:hover {
+            background-color: #bbdefb;
+            border-color: #90caf9;
+        }
+        .table-wrapper {
+            /* Фиксированный размер, примерно с экран */
+            height: calc(100vh - 400px); /* Высота экрана минус отступ для остального контента */
+            min-height: 400px; /* Минимальная высота */
+            margin: 20px 0;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            background: white;
+        }
+
+        .table-container {
+            width: 100%;
+            height: 100%;
+            overflow: auto; /* Оба скролла */
+            position: relative;
+        }
+
+        #resultsTable {
+            border-collapse: collapse;
+            width: max-content; /* Таблица займет столько места, сколько нужно */
+            min-width: 100%; /* Но не меньше ширины контейнера */
+        }
+
+        #resultsTable thead {
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            background: white;
+        }
+
+        #resultsTable th {
+            position: sticky;
+            top: 0;
+            background: #f8f9fa;
+            border-bottom: 2px solid #ddd;
+            padding: 12px 15px;
+            text-align: left;
+            font-weight: bold;
+        }
+
+        #resultsTable td {
+            padding: 8px 15px;
+            border: 1px solid #ddd;
+            max-width: 300px; /* Максимальная ширина ячейки */
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        /* Стили для ячеек при наведении */
+        #resultsTable td:hover {
+            white-space: normal;
+            word-wrap: break-word;
+            position: relative;
+            background-color: #f8f9fa;
+            z-index: 1;
+        }
+
+        /* Кастомные скроллбары */
+        .table-container::-webkit-scrollbar {
+            width: 12px;
+            height: 12px;
+        }
+
+        .table-container::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 6px;
+        }
+
+        .table-container::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 6px;
+            border: 3px solid #f1f1f1;
+        }
+
+        .table-container::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        /* Стили для строк с разными статусами */
+        .processing-row {
+            background-color: #fff3cd;
+        }
+
+        .error-row {
+            background-color: #ffe6e6;
+        }
+
+        .success-row {
+            background-color: #f0fff0;
+        }
+
+        /* Анимация для активной строки */
+        @keyframes pulse {
+            0% { background-color: #fff3cd; }
+            50% { background-color: #ffecb5; }
+            100% { background-color: #fff3cd; }
+        }
+
+        .processing-row {
+            animation: pulse 2s infinite;
+        }
+
+        .api-key-section {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+
+        .api-status {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        #apiKeyMessage {
+            font-weight: 500;
+        }
+
+        #apiKeyForm {
+            margin-top: 10px;
+            display: flex;
+            gap: 10px;
+        }
+
+        #apiKeyInput {
+            flex-grow: 1;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .sub-collapsible {
+            background-color: #f8f9fa;
+            margin: 10px 0;
+            font-size: 14px;
+            padding: 12px;
+        }
+
+        .sub-panel {
+            padding: 15px;
+            background-color: white;
+            border: 1px solid #eee;
+            margin-bottom: 20px;
+        }
+
+        .api-status {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 10px;
+        }
+
+        #apiKeyForm {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        #apiKeyInput {
+            flex-grow: 1;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .presets-section {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+
+        .presets-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .preset-select {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        .preset-dialog {
+            margin-top: 10px;
+            padding: 15px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .preset-dialog input {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .preset-dialog .button-group {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 10px;
+        }
+
+        /* Обновляем стили для кнопок пресетов */
+        .presets-section .button-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .presets-section .button-group button,
+        .presets-section .button-group label.button {
+            padding: 8px 15px;
+            min-width: 120px;
+        }
+
+        .preset-dialog input {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .preset-dialog .button-group {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        /* Добавляем общее правило для всех элементов */
+        *, *:before, *:after {
+            box-sizing: border-box;
+        }
+
+        .control-section {
+            width: 100%;
+            padding: 0;
+            margin: 0;
+        }
+
+        /* Стили для чата */
+        .chat-section {
+            height: calc(100vh - 100px);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .chat-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            padding: 15px;
+            border-radius: 8px;
+            max-width: 80%;
+            overflow-wrap: break-word;
+        }
+
+        .user-message {
+            background-color: #e3f2fd;
+            margin-left: auto;
+        }
+
+        .ai-message {
+            background-color: #f5f5f5;
+            margin-right: auto;
+        }
+
+        /* Стили для Markdown */
+        .message pre {
+            background: #f6f8fa;
+            border-radius: 6px;
+            padding: 16px;
+            overflow-x: auto;
+        }
+
+        .message code {
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.9em;
+            padding: 0.2em 0.4em;
+            background: #f6f8fa;
+            border-radius: 3px;
+        }
+
+        .message pre code {
+            padding: 0;
+            background: transparent;
+        }
+
+        .message table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 10px 0;
+        }
+
+        .message th, .message td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+
+        .message th {
+            background-color: #f6f8fa;
+        }
+
+        .message blockquote {
+            border-left: 4px solid #ddd;
+            margin: 0;
+            padding-left: 16px;
+            color: #666;
+        }
+
+        .message img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        .message ul, .message ol {
+            padding-left: 20px;
+        }
+
+        /* Стили для копирования кода */
+        .code-wrapper {
+            position: relative;
+        }
+
+        .copy-button {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            padding: 5px 10px;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .code-wrapper:hover .copy-button {
+            opacity: 1;
+        }
+
+        /* Стили для drag-and-drop */
+        .drag-overlay {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(33, 150, 243, 0.1);
+            border: 3px dashed #2196f3;
+            border-radius: 8px;
+            z-index: 1000;
+            pointer-events: none;
+        }
+
+        .drag-overlay.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5em;
+            color: #2196f3;
+        }
+
+        .loading-indicator {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 1001;
+        }
+
+        .loading-indicator.active {
+            display: block;
+        }
+
+        /* Стили для ввода */
+        .input-container {
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+        }
+
+        #messageInput {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            resize: vertical;
+            height: 100px;
+            min-height: 100px;
+            max-height: 50vh;
+            overflow-y: auto;
+            line-height: 1.5;
+            font-family: inherit;
+            box-sizing: border-box;
+        }
+
+        .input-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .input-buttons .button {
+            min-width: 120px;
+        }
+
+        /* Стили для чекбоксов */
+        .checkbox-group {
+            display: flex;
+            gap: 20px;
+            margin: 15px 0;
+            align-items: center;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            margin: 0;
+        }
+
+        .checkbox-item input[type="checkbox"] {
+            margin-right: 10px;
+        }
+
+        /* Стили для кнопок чата */
+        .button-right {
+            margin-left: auto !important;
+        }
+
+        /* Стили для панели настроек чата */
+        .chat-settings {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        /* Стили для системного промпта */
+        #systemPrompt {
+            width: 100%;
+            min-height: 100px;
+            margin: 10px 0;
+            padding: 12px;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            font-family: inherit;
+            resize: vertical;
+        }
+
+        /* Стили для диалогов чата */
+        .chat-dialog {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+        }
+
+        .chat-dialog h3 {
+            margin-top: 0;
+            margin-bottom: 15px;
+        }
+
+        .chat-dialog input {
+            width: 100%;
+            padding: 8px;
+            margin: 10px 0;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+        }
+
+        .chat-dialog select {
+            width: 100%;
+            padding: 8px;
+            margin: 10px 0;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+        }
+
+        /* Стили для кнопок в диалогах */
+        .chat-dialog .button-group {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 15px;
+        }
+
+        .chat-dialog .button-group button {
+            min-width: 80px;
+        }
+
+        /* Повышаем специфичность стилей для кнопок чата */
+        .chat-section .input-buttons .button.primary,
+        .settings-panel .button-group .button.primary {
+            background-color: #e8f5e9 !important;
+            color: #2e7d32 !important;
+            border-color: #c8e6c9 !important;
+            min-width: 120px;
+            height: 45px;
+        }
+
+        .chat-section .input-buttons .button.upload,
+        .settings-panel .button-group .button.upload {
+            background-color: #f3e5f5 !important;
+            color: #6a1b9a !important;
+            border-color: #e1bee7 !important;
+            min-width: 120px;
+            height: 45px;
+        }
+
+        .chat-section .input-buttons .button.download,
+        .settings-panel .button-group .button.download {
+            background-color: #e3f2fd !important;
+            color: #1565c0 !important;
+            border-color: #bbdefb !important;
+            min-width: 120px;
+            height: 45px;
+        }
+
+        .chat-section .input-buttons .button.warning,
+        .settings-panel .button-group .button.warning {
+            background-color: #ffebee !important;
+            color: #c62828 !important;
+            border-color: #ffcdd2 !important;
+            min-width: 120px;
+            height: 45px;
+        }
+
+        /* Эффекты при наведении */
+        .chat-section .input-buttons .button.primary:hover,
+        .settings-panel .button-group .button.primary:hover {
+            background-color: #c8e6c9 !important;
+            border-color: #a5d6a7 !important;
+        }
+
+        .chat-section .input-buttons .button.upload:hover,
+        .settings-panel .button-group .button.upload:hover {
+            background-color: #e1bee7 !important;
+            border-color: #ce93d8 !important;
+        }
+
+        .chat-section .input-buttons .button.download:hover,
+        .settings-panel .button-group .button.download:hover {
+            background-color: #bbdefb !important;
+            border-color: #90caf9 !important;
+        }
+
+        .chat-section .input-buttons .button.warning:hover,
+        .settings-panel .button-group .button.warning:hover {
+            background-color: #ffcdd2 !important;
+            border-color: #ef9a9a !important;
+        }
+    </style>
+</head>
+<body>
+    <h1>Karhuno WebMatrix</h1>
+    
+    <button type="button" class="collapsible">📖 README</button>
+    <div class="content readme-panel">
+        <div class="readme-container">
+            <h1>WebMatrix</h1>
+            
+            <div class="intro-section">
+                <h2>Karhuno Data Analysis Assistant</h2>
+                
+                <p class="intro-text">
+                    Hi there! WebMatrix is a compact tool that helps automate routine work with tables, search, and data analysis using AI. Just open the file in your browser, upload a table, and describe in plain words what you need to find or analyze.
+                </p>
+        
+                <ul>
+                    <li>✨ No installation required</li>
+                    <li>🔒 Your data stays local</li>
+                    <li>⚡ Quick results</li>
+                    <li>📊 One-click analysis</li>
+                    <li>🔄 Works in background</li>
+                    <li>💻 Won't disrupt your workflow</li>
+                    <li>💬 Built-in AI assistant</li>
+                    <li>🔄 Interactive result analysis</li>
+                    <li>📝 Data-driven prompt improvement</li>
+                </ul>
+            </div>
+        
+            <button type="button" class="collapsible">🎯 What can WebMatrix do?</button>
+            <div class="content">
+                <div class="cases-grid">
+                    <div class="case">
+                        <h3>Company Analysis</h3>
+                        <p>Automatically researches websites, finds key information about business scale, operations, and specialization</p>
+                    </div>
+                    
+                    <div class="case">
+                        <h3>Data Processing</h3>
+                        <p>Classifies, categorizes, and enriches tabular data with additional insights</p>
+                    </div>
+                    
+                    <div class="case">
+                        <h3>Automation</h3>
+                        <p>Uses AI to handle routine table tasks that you'd normally do manually</p>
+                    </div>
+                    
+                    <div class="case">
+                        <h3>Validation</h3>
+                        <p>Checks data against specified criteria, identifies discrepancies and finds supporting evidence</p>
+                    </div>
+                    <div class="case">
+                        <h3>Interactive Analysis</h3>
+                        <p>Discusses results with AI, helps improve prompts and uncovers hidden patterns in data</p>
+                    </div>
+                </div>
+            </div>
+        
+            <button type="button" class="collapsible">🔄 How does it work?</button>
+            <div class="content">
+                <ol>
+                    <li>📤 Upload your data table (for example, a list of companies to analyze)</li>
+                    <li>💬 Describe in plain English what you need to find or verify</li>
+                    <li>🤖 WebMatrix automatically creates an optimal AI query and response columns</li>
+                    <li>📊 AI analyzes the data and adds new columns with results to your table</li>
+                    <li>💡 Discuss results with AI assistant to improve analysis quality and find non-obvious patterns</li>
+                </ol>
+            </div>
+        
+            <button type="button" class="collapsible">📚 Ready-made recipes</button>
+            <div class="content">
+                <div class="recipe-cards">
+                    <div class="recipe">
+                        <h3>🔍 B2B Company Analysis</h3>
+                        <p>Automatically determines:</p>
+                        <ul>
+                            <li>Business size and geography</li>
+                            <li>Main areas of operation</li>
+                            <li>Potential for collaboration</li>
+                            <li>Indicators of international trade</li>
+                        </ul>
+                        <p>Example query:</p>
+                        <p><i>Analyze the website of company {{company_name}} {{website}} and evaluate:<br>
+                        - Scale of international operations<br>
+                        - Presence of currency operations<br>
+                        - Potential as a B2B client<br>
+                        - Main regions of presence</i></p>
+                    </div>
+        
+                    <div class="recipe">
+                        <h3>📋 Keyword Improvement</h3>
+                        <p>Searches for key phrases in "good" signals</p>
+                        <ul>
+                            <li>Reads high-quality signals</li>
+                            <li>Finds key phrases</li>
+                            <li>Creates a list</li>
+                        </ul>
+                        <p>Example query:</p>
+                        <p><i>Read the article and find key phrases that can be used to find similar news on Google:<br>
+                        - Startup attracted investments.<br>
+                        - Operates in the {{industry}} industry.<br>
+                        - Has a distributed team.<br>
+                        {{article_text}}</i></p>
+                    </div>
+        
+                    <div class="recipe">
+                        <h3>📊 Data Enrichment</h3>
+                        <p>Enriches tables with information:</p>
+                        <ul>
+                            <li>Descriptions from open sources</li>
+                            <li>Categorization by criteria</li>
+                            <li>Potential assessment</li>
+                            <li>Identifying features</li>
+                        </ul>
+                        <p>Example query:</p>
+                        <p><i>Enrich the data about the company:<br>
+                        - Brief business description<br>
+                        - Main areas of operation<br>
+                        - Annual revenue assessment<br>
+                        - Country of the main office location</i></p>
+                    </div>
+                </div>
+            </div>
+        
+            <button type="button" class="collapsible">💬 AI assistant</button>
+            <div class="content">
+                <div class="chat-features">
+                    <h3>Chat capabilities</h3>
+                    <ul>
+                        <li>Analysis of the entire table for pattern discovery</li>
+                        <li>Checking results for errors and hallucinations</li>
+                        <li>Data-driven prompt improvement</li>
+                        <li>Generating key phrases for search</li>
+                        <li>Creating summaries of results</li>
+                    </ul>
+        
+                    <h3>Examples of use</h3>
+                    
+                    <div class="chat-example">
+                        <h4>📊 Analysis results</h4>
+                        <p>After processing the data, ask:</p>
+                        <p><i>
+                        "Analyze the results and find:<br>
+                        - Companies with the highest potential<br>
+                        - Common characteristics of successful cases<br>
+                        - Possible false positives<br>
+                        - What can be improved in the prompt"</i></p>
+                    </div>
+        
+                    <div class="chat-example">
+                        <h4>🔍 Improvement of search</h4>
+                        <p>Upload successful cases and ask:</p>
+                        <p><i>
+                        "Based on these successful findings:<br>
+                        - Create a list of key phrases for searching similar signals<br>
+                        - Find common traits in descriptions and news<br>
+                        - Identify common features of websites"</i></p>
+                    </div>
+        
+                    <div class="chat-example">
+                        <h4>👥 Role-play scenarios</h4>
+                        <p>Use specialized roles:</p>
+                        <p><i>
+                        "You are the CEO of a fintech company, looking for partners.<br>
+                        Look at the analysis results and:<br>
+                        - Evaluate the attractiveness of the found companies<br>
+                        - Point out what to pay attention to during the first contact<br>
+                        - Suggest how to improve the search potential"</i></p>
+                    </div>
+                </div>
+            </div>
+        
+            <button type="button" class="collapsible">💡 Useful tips</button>
+            <div class="content">
+                <div class="tips-grid">
+                    <div class="tip">
+                        <h3>🎯 Analysis accuracy</h3>
+                        <ul>
+                            <li>Use specific evaluation criteria</li>
+                            <li>Specify priority parameters</li>
+                            <li>Ask for confirmation of conclusions with links</li>
+                            <li>Don't ask too many questions in one go</li>
+                            <li>Explicitly specify models what and how they should do</li>
+                            <li>Manually analyze the first lines and compare the model's answers with expected ones</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="tip">
+                        <h3>⚡ Work speed</h3>
+                        <ul>
+                            <li>Save successful prompts</li>
+                            <li>The Magic button can be used multiple times</li>
+                            <li>Monitor the first results and adjust the prompt</li>
+                            <li>In "incognito" mode, it can work in multiple instances with different API keys</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="tip">
+                        <h3>📈 Improvement of results</h3>
+                        <ul>
+                            <li>Check the first results</li>
+                            <li>Adjust the prompt as needed</li>
+                            <li>Specify typical model errors in the prompt</li>
+                            <li>Use AI to improve prompts based on data</li>
+                            <li>Always remember: Models lie very convincingly.</li>
+                        </ul>
+                    </div>
+                    <div class="tip">
+                        <h3>💬 Working with chat</h3>
+                        <ul>
+                            <li>Use chat to check results for errors</li>
+                            <li>Create specialized roles for specific tasks</li>
+                            <li>Analyze the entire table at once for pattern discovery</li>
+                            <li>Generate key phrases based on successful findings</li>
+                            <li>Discuss results from different perspectives (analyst, client, lead)</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        
+            <button type="button" class="collapsible">🚀 Quick start</button>
+            <div class="content">
+                <div class="setup-steps">
+                    <div class="step">
+                        <h3>1️⃣ Get API key</h3>
+                        <p>It will take literally a minute:</p>
+                        <ol>
+                            <li>Open <a href="https://makersuite.google.com/app/apikey" target="_blank">makersuite.google.com</a></li>
+                            <li>Click "Create API Key"</li>
+                            <li>Save the key in a secure place</li>
+                        </ol>
+                    </div>
+        
+                    <div class="step">
+                        <h3>2️⃣ Run WebMatrix</h3>
+                        <ol>
+                            <li>Open WebMatrix.html in your browser</li>
+                            <li>Enter the API key (it will be saved in your browser)</li>
+                            <li>Upload your table</li>
+                            <li>Describe the task in plain English</li>
+                            <li>Click "Magic" ✨</li>
+                        </ol>
+                    </div>
+                </div>
+        
+                <div class="magic-button-section">
+                    <h2>✨ About the "Magic" button</h2>
+                    <p>This is your assistant in creating effective prompts. It analyzes:</p>
+                    <ul>
+                        <li>The structure of your table</li>
+                        <li>Example data</li>
+                        <li>Task description</li>
+                    </ul>
+                    <p>And automatically creates an optimal prompt for analysis.</p>
+                </div>
+            </div>
+        
+            <button type="button" class="collapsible">ℹ️ Important to know</button>
+            <div class="content">
+                <div class="note-cards">
+                    <div class="note">
+                        <h3>🔒 Security</h3>
+                        <p>The API key is stored only in your browser. It is not transmitted or saved anywhere.</p>
+                    </div>
+        
+                    <div class="note">
+                        <h3>💾 Data persistence</h3>
+                        <p>Presets and settings are stored locally. Important presets are better to export.</p>
+                    </div>
+        
+                    <div class="note">
+                        <h3>🌐 Accessibility</h3>
+                        <p>If there are issues with access, use VPN extensions for your browser (Browsec, ZenMate, Urban VPN).</p>
+                    </div>
+        
+                    <div class="note">
+                        <h3>🔄 Background operation</h3>
+                        <p>Use a separate browser or profile for background operation of WebMatrix. This will allow you to run multiple instances with different API keys without disrupting your main workflow.</p>
+                    </div>
+        
+                    <div class="note">
+                        <h3>💡 Feedback</h3>
+                        <p>All ideas, suggestions, and bug reports should be sent to the developer - Pavel, Telegram @kcalls</p>
+                    </div>
+        
+                    <div class="note">
+                        <h3>🤝 Share experience with colleagues</h3>
+                        <p>Share successful presets and case studies of WebMatrix application with the team.</p>
+                    </div>
+                </div>
+            </div>
+        
+            <div class="quality-tips">
+                <h2>🎯 For the best results</h2>
+                <ul>
+                    <li>Start with analyzing a small sample of data</li>
+                    <li>Check results after 5-10 minutes after starting</li>
+                    <li>Adjust the prompt as needed</li>
+                    <li>Save successful prompts in presets</li>
+                    <li>Don't forget to check the results of the AI</li>
+                </ul>
+            </div>
+            <p>Remember, the final stage of checking the results is your expertise. The client should never receive hallucinations in the report.</p>
+        </div>
+    </div>
+    
+    <button type="button" class="collapsible">⚙️ Settings</button>
+    <div class="content settings-panel">
+        <button type="button" class="collapsible sub-collapsible">🔑 API Key</button>
+        <div class="content sub-panel">
+            <div id="apiKeyStatus" class="api-status">
+                <span id="apiKeyMessage">API Key required</span>
+                <button onclick="showApiKeyForm()" class="button primary" id="apiKeyButton">Set API Key</button>
+            </div>
+            <div id="apiKeyForm" style="display: none;">
+                <input type="password" id="apiKeyInput" placeholder="Enter Gemini API Key">
+                <button onclick="saveApiKey()" class="button primary">Save</button>
+                <button onclick="hideApiKeyForm()" class="button warning">Cancel</button>
+            </div>
+        </div>
+
+        <div class="presets-section">
+            <h3>Presets</h3>
+            <div class="presets-controls">
+                <select id="presetSelect" class="preset-select">
+                    <option value="">Select preset...</option>
+                </select>
+                
+                <div class="button-group">
+                    <!-- Основные действия с пресетами -->
+                    <button onclick="loadPreset()" class="primary">📂 Load</button>
+                    <button onclick="showSavePresetDialog()" class="primary">💾 Save</button>
+                    <button onclick="deletePreset()" class="warning">🗑️ Delete</button>
+                    
+                    <!-- Импорт/��кспорт -->
+                    <input type="file" id="importPreset" accept=".json" style="display: none;" onchange="importPresets(event)">
+                    <label for="importPreset" class="button upload">📥 Import Presets</label>
+                    <button onclick="showExportPresetDialog()" class="download">📤 Export Presets</button>
+                </div>
+            </div>
+            
+            <!-- Диалог сохранения пресета -->
+            <div id="savePresetDialog" style="display: none;" class="preset-dialog">
+                <input type="text" id="presetName" placeholder="Enter preset name">
+                <div class="button-group">
+                    <button onclick="savePreset()" class="primary">Save</button>
+                    <button onclick="hideSavePresetDialog()" class="warning">Cancel</button>
+                </div>
+            </div>
+            
+            <!-- Диалог экспорта пресетов -->
+            <div id="exportPresetDialog" style="display: none;" class="preset-dialog">
+                <input type="text" id="exportPresetName" placeholder="Enter export file name">
+                <div class="button-group">
+                    <button onclick="doExportPresets()" class="primary">Export</button>
+                    <button onclick="hideExportPresetDialog()" class="warning">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+        <h3>Prompt</h3>
+        <textarea id="promptTemplate">Analyze this website: {{url}}
+
+Your task is to evaluate if the company could benefit from international payment and fintech solutions.
+Return response in this JSON format only:
+{
+    "company_name": string,
+    "has_international_offices": boolean,
+    "has_currency_exchange": boolean,
+    "has_money_transfer": boolean,
+    "sales_potential": number (0-5),
+    "estimated_yearly_fx_volume": string,
+    "locations": string,
+    "company_summary": string,
+    "lead_quality_notes": string,
+    "proof_url": string
+}</textarea>
+        
+        <h3>Output Columns (one per line)</h3>
+        <textarea id="outputColumns">company_name
+has_international_offices
+has_currency_exchange
+has_money_transfer
+sales_potential
+estimated_yearly_fx_volume
+locations
+company_summary
+lead_quality_notes
+proof_url</textarea>
+    </div>
+    
+    <div class="container">
+        <div class="control-section">
+            <h2>Input Data</h2>
+            <div class="button-group">
+                <input type="file" id="inputFile" accept=".csv,.xlsx,.xls" onchange="handleFileUpload(event)" style="display: none;">
+                <label for="inputFile" class="button upload">📄 Upload Data</label>
+                <button class="magic" onclick="generatePrompt()">✨ Magic Prompt</button>
+                <button class="primary" onclick="startProcessing()">▶️ Start Analysis</button>
+                <button class="warning" onclick="stopProcessing()">⏹️ Stop</button>
+                <button class="download" onclick="downloadResults()">💾 Save JSON</button>
+                <button class="download" onclick="downloadCSV()">📊 Save CSV</button>
+                <button class="download" onclick="downloadExcel()">📑 Save Excel</button>
+            </div>
+            <div id="status"></div>
+        </div>
+        
+        <div class="results-section">
+            <h2>Results</h2>
+            <div class="table-wrapper">
+                <div class="table-container">
+                    <table id="resultsTable">
+                        <thead>
+                            <tr id="headerRow"></tr>
+                        </thead>
+                        <tbody id="resultsBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="progress-bar">
+        <div class="progress-bar-fill" style="width: 0%"></div>
+    </div>
+
+    <button type="button" class="collapsible">💬 Chat</button>
+    <div class="content">
+        <button type="button" class="collapsible">⚙️ Chat Settings</button>
+        <div class="content settings-panel">
+            <!-- Системные промпты -->
+            <h3>System Prompts</h3>
+            <div class="button-group">
+                <button class="button upload" onclick="loadPrompt()">📂 Load Prompt</button>
+                <button class="button download" onclick="savePrompt()">💾 Save Prompt</button>
+                <input type="file" id="promptFile" accept=".txt,.md" style="display: none;" onchange="loadPromptFromFile(event)">
+                <button class="button upload" onclick="document.getElementById('promptFile').click()">📥 Import from File</button>
+                <button class="button download" onclick="exportPrompt()">📤 Export to MD</button>
+                <button class="button warning button-right" onclick="clearHistory()">🗑️ Clear History</button>
+            </div>
+            
+            <textarea id="systemPrompt" placeholder="Enter system prompt here..." rows="5" style="width: 100%; margin: 10px 0;"></textarea>
+
+            <!-- Чекбоксы для контекста -->
+            <div class="checkbox-group">
+                <div class="checkbox-item">
+                    <input type="checkbox" id="showTable">
+                    <label for="showTable">LLM sees table data</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="showPreset">
+                    <label for="showPreset">LLM sees preset</label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Чат -->
+        <div class="chat-section">
+            <div class="drag-overlay">
+                <div>Drop files here</div>
+            </div>
+            <div class="loading-indicator">
+                Processing file... 📄
+            </div>
+            <div class="chat-container" id="chatContainer">
+                <!-- Сообщения будут добавляться здесь -->
+            </div>
+            
+            <div class="input-container">
+                <textarea 
+                    id="messageInput" 
+                    placeholder="Type your message here... (Enter to send, Shift+Enter for new line)"
+                    rows="1"
+                ></textarea>
+                <div class="input-buttons">
+                    <button class="button primary" onclick="sendMessage()">📤 Send</button>
+                    <button class="button upload" onclick="document.getElementById('uploadFile').click()">📎 Upload File</button>
+                    <input type="file" id="uploadFile" style="display: none;" onchange="handleChatFileUpload(event)">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Глобальная переменная для ключа
+        let GEMINI_API_KEY = '';
+        let isProcessing = false;
+        let results = [];
+        
+        // Встроенный конфиг
+        const DEFAULT_CONFIG = {
+            "profiles": {
+                "website_analyzer": {
+                    "name": "Website Analyzer",
+                    "description": "Анализ сайтов на предмет международной активности и поенциала для финтех решений",
+                    "prompt": "You are an AI agent...",
+                    "output_columns": [
+                        "company_name",
+                        "has_international_offices",
+                        "has_currency_exchange",
+                        "has_money_transfer",
+                        "sales_potential",
+                        "estimated_yearly_fx_volume",
+                        "locations",
+                        "company_summary",
+                        "lead_quality_notes",
+                        "proof_url"
+                    ],
+                    "model": "gemini-pro",
+                    "temperature": 0.0
+                },
+                "quick_check": {
+                    "name": "Quick Check",
+                    "description": "Быстрый анализ только главной страницы",
+                    "prompt": "Visit {url} and analyze ONLY the main page content...", // весь текст промпта
+                    "output_columns": [
+                        "company_name",
+                        "has_international_offices",
+                        "has_currency_exchange",
+                        "has_money_transfer",
+                        "sales_potential",
+                        "estimated_yearly_fx_volume",
+                        "locations",
+                        "company_summary",
+                        "lead_quality_notes",
+                        "proof_url"
+                    ],
+                    "model": "gemini-pro",
+                    "temperature": 0.0
+                }
+            }
+        };
+
+        // Убираем неиспользуемые функции
+        function loadConfig() {
+            return DEFAULT_CONFIG;
+        }
+
+        function saveConfig(config) {
+            return true;
+        }
+
+        function initConfig() {
+            return DEFAULT_CONFIG;
+        }
+
+        // Добавляем после объявления переменных чата
+        const DEFAULT_SYSTEM_PROMPT = `I am an AI assistant helping you with data analysis and prompt engineering.
+
+When table data is shared:
+- I will analyze the data and help you understand patterns and insights
+- I can suggest improvements for data processing
+- I can help optimize prompts based on the results
+
+When preset is shared:
+- I will help you improve the prompt structure
+- I can suggest ways to make instructions more clear
+- I will help optimize the output format
+
+I will always:
+- Provide clear explanations
+- Suggest specific improvements
+- Use examples when helpful
+- Focus on practical solutions
+
+Let me know what you'd like to analyze or improve!`;
+
+        // Добавляем функцию для получения данных из таблицы
+        function getTableData() {
+            const table = document.getElementById('resultsTable');
+            if (!table) return null;
+
+            const headers = Array.from(table.querySelectorAll('th')).map(th => th.textContent);
+            const rows = Array.from(table.querySelectorAll('tbody tr')).map(tr => {
+                const row = {};
+                Array.from(tr.cells).forEach((cell, i) => {
+                    row[headers[i]] = cell.textContent;
+                });
+                return row;
+            });
+
+            return {
+                headers: headers,
+                rows: rows,
+                totalRows: rows.length,
+                lastProcessed: rows.filter(row => row.company_name && row.company_name !== 'N/A').length
+            };
+        }
+
+        // Обновляем инициализацию
+        document.addEventListener('DOMContentLoaded', async function() {
+            // Инициализация основного интерфейса
+            GEMINI_API_KEY = localStorage.getItem('gemini_api_key') || '';
+            updateApiKeyStatus();
+            
+            // Настройка спойлеров (один раз для всех)
+            setupCollapsible();
+            
+            // Обновление пресетов
+            await updatePresetList();
+            
+            // Инициализация чата
+            loadChatHistory();
+            setupMessageInput();
+            setupDragAndDrop();
+            
+            // Открываем Settings и закрываем README
+            const collapsibles = document.getElementsByClassName("collapsible");
+            Array.from(collapsibles).forEach((button) => {
+                const content = button.nextElementSibling;
+                if (button.textContent.includes('Settings')) {
+                    button.classList.add('active');
+                    content.style.display = 'block';
+                } else if (button.textContent.includes('README')) {
+                    button.classList.remove('active');
+                    content.style.display = 'none';
+                }
+            });
+            
+            // Устанавливаем системный промпт по умолчанию
+            document.getElementById('systemPrompt').value = DEFAULT_SYSTEM_PROMPT;
+        });
+
+        // Обновляем функцию setupCollapsible
+        function setupCollapsible() {
+            var coll = document.getElementsByClassName("collapsible");
+            for (var i = 0; i < coll.length; i++) {
+                coll[i].addEventListener("click", function(e) {
+                    e.stopPropagation();
+                    
+                    this.classList.toggle("active");
+                    var content = this.nextElementSibling;
+                    
+                    if (content.style.display === "block") {
+                        content.style.display = "none";
+                    } else {
+                        content.style.display = "block";
+                        
+                        // Если это секция чата, прокручиваем страницу
+                        if (this.textContent.includes('Chat')) {
+                            // Даем время на отрисовку контента
+                            setTimeout(() => {
+                                window.scrollTo({
+                                    top: document.body.scrollHeight,
+                                    behavior: 'smooth'
+                                });
+                            }, 100);
+                        }
+                    }
+                });
+            }
+        }
+
+        function loadSavedSettings() {
+            const apiKey = localStorage.getItem('geminiApiKey');
+            const promptTemplate = localStorage.getItem('promptTemplate');
+            const outputColumns = localStorage.getItem('outputColumns');
+            
+            if (apiKey) document.getElementById('apiKey').value = apiKey;
+            if (promptTemplate) document.getElementById('promptTemplate').value = promptTemplate;
+            if (outputColumns) document.getElementById('outputColumns').value = outputColumns;
+        }
+
+        // Добавляем функцию очистки URL
+        function cleanUrl(url) {
+            // Удаляем протокол (http://, https://, etc)
+            url = url.replace(/^(https?:\/\/)?(www\.)?/i, '');
+            
+            // Удаляем trailing slash и все что после него
+            url = url.split('/')[0];
+            
+            // Удаляем пробелы
+            url = url.trim();
+            
+            return url;
+        }
+
+        // Обновляем функцию makeRequest
+        async function makeRequest(url, apiKey) {
+            try {
+                // 1. Берем промпт из интерфейса
+                const promptTemplate = document.getElementById('promptTemplate').value;
+                
+                // 2. Находим все переменные в помпте
+                const variables = promptTemplate.match(/\{\{[^}]+\}\}/g) || [];
+                
+                // 3. Создаем копию промпта для замены
+                let finalPrompt = promptTemplate;
+                
+                // 4. Для каждой переменной
+                variables.forEach(variable => {
+                    // Убираем скобки и получаем имя колонки
+                    const columnName = variable.replace(/[{}]/g, '');
+                    // Получ��ем значение из текущей строки таблицы
+                    let value = url; // пока просто url, позже будем брать из нужной колонки
+                    // Очищаем значение от протоколов и www
+                    value = cleanPossibleUrl(value);
+                    // Заменяем переменную значением
+                    finalPrompt = finalPrompt.replace(variable, value);
+                });
+
+                // 5. Отправляем запрос с готовым промптом
+                const response = await fetch(
+                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            contents: [{
+                                parts: [{
+                                    text: finalPrompt
+                                }]
+                            }]
+                        })
+                    }
+                );
+                
+                if (!response.ok) {
+                    throw new Error(`API request failed: ${response.status}`);
+                }
+                
+                return await response.json();
+            } catch (error) {
+                throw error;
+            }
+        }
+
+        function validateJsonResponse(jsonData, requiredFields) {
+            if (!jsonData) return false;
+            
+            return requiredFields.every(field => {
+                return jsonData.hasOwnProperty(field);
+            });
+        }
+
+        function extractJsonFromResponse(response) {
+            try {
+                if (!response.candidates?.[0]?.content?.parts?.[0]?.text) {
+                    throw new Error('Invalid API response structure');
+                }
+
+                const text = response.candidates[0].content.parts[0].text;
+                
+                // Ищем JSON в тексте (с учетом маркеров кода)
+                let jsonText = text;
+                
+                // Если есть маркеры кода - берем текст между ними
+                if (text.includes('```')) {
+                    const codeMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+                    if (codeMatch) {
+                        jsonText = codeMatch[1];
+                    }
+                }
+                
+                // Ищем JSON в получившемся тексте
+                const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
+                if (!jsonMatch) {
+                    throw new Error('No JSON found in response');
+                }
+
+                try {
+                    return JSON.parse(jsonMatch[0]);
+                } catch (parseError) {
+                    // Если не удалось распарсить - возвращаем ошибку с текстом ответа
+                    const errorResponse = createEmptyResponse();
+                    errorResponse[Object.keys(errorResponse)[0]] = text;
+                    return errorResponse;
+                }
+            } catch (error) {
+                const errorResponse = createEmptyResponse();
+                errorResponse[Object.keys(errorResponse)[0]] = error.message + '\n' + response?.candidates?.[0]?.content?.parts?.[0]?.text || 'No response text';
+                return errorResponse;
+            }
+        }
+
+        function createEmptyResponse(message) {
+            const fields = document.getElementById('outputColumns').value
+                .trim()
+                .split('\n')
+                .filter(col => col);
+            
+            const response = {};
+            fields.forEach(field => response[field] = 'N/A');
+            return response;
+        }
+
+        function addResult(url, response, isError = false) {
+            const resultsDiv = document.getElementById('results');
+            const resultElement = document.createElement('div');
+            resultElement.className = `result ${isError ? 'error' : 'success'}`;
+            
+            let jsonData;
+            if (isError) {
+                jsonData = createEmptyResponse();
+            } else {
+                jsonData = extractJsonFromResponse(response);
+            }
+            
+            resultElement.innerHTML = `
+                <strong>URL:</strong> ${url}<br>
+                <strong>Response:</strong><br>
+                ${JSON.stringify(jsonData, null, 2)}
+            `;
+            
+            resultsDiv.insertBefore(resultElement, resultsDiv.firstChild);
+            
+            results.push({
+                url: url,
+                data: jsonData,
+                timestamp: new Date().toISOString()
+            });
+        }
+
+        function convertToCSV(results) {
+            const outputColumns = document.getElementById('outputColumns').value
+                .trim().split('\n').map(col => col.trim());
+            
+            // Заголовки
+            let csv = ['URL', ...outputColumns].join(',') + '\n';
+            
+            // Данные
+            results.forEach(result => {
+                const row = [result.url];
+                const jsonData = extractJsonFromResponse(result.response);
+                
+                if (jsonData) {
+                    outputColumns.forEach(col => {
+                        let value = jsonData[col] || '';
+                        // Экранируем запятые и кавычки
+                        if (typeof value === 'string' && (value.includes(',') || value.includes('"'))) {
+                            value = `"${value.replace(/"/g, '""')}"`;
+                        }
+                        row.push(value);
+                    });
+                } else {
+                    outputColumns.forEach(() => row.push('N/A'));
+                }
+                
+                csv += row.join(',') + '\n';
+            });
+            
+            return csv;
+        }
+
+        function downloadExcel() {
+            const csv = convertToCSV(results);
+            const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `results_${new Date().toISOString()}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function updateProgress(current, total) {
+            const percentage = (current / total) * 100;
+            document.querySelector('.progress-bar-fill').style.width = percentage + '%';
+        }
+
+        function updateStatus(message, current, total) {
+            const status = document.getElementById('status');
+            if (current !== undefined && total !== undefined) {
+                status.textContent = `${message} (${current}/${total})`;
+            } else {
+                status.textContent = message;
+            }
+        }
+
+        // Инициализация таблицы при загрузке данных
+        function initTable(data) {
+            const headers = ['URL', ...document.getElementById('outputColumns').value.trim().split('\n')];
+            const headerRow = document.getElementById('headerRow');
+            headerRow.innerHTML = headers.map(h => `<th>${h}</th>`).join('');
+            
+            const tbody = document.getElementById('resultsBody');
+            tbody.innerHTML = ''; // Очищаем таблицу
+            
+            // Создаем пстые строки для всех URL
+            data.split('\n').forEach(url => {
+                if (!url.trim()) return;
+                
+                const row = tbody.insertRow();
+                row.id = `row-${url.trim()}`;
+                headers.forEach((_, i) => {
+                    const cell = row.insertCell(i);
+                    if (i === 0) cell.textContent = url.trim();
+                    else cell.textContent = 'Pending...';
+                });
+            });
+        }
+
+        // Обновление строки при получении результата
+        function updateTableRow(index, data) {
+            const row = document.getElementById(`row-${index}`);
+            if (!row) return;
+            
+            const outputColumns = document.getElementById('outputColumns').value
+                .trim()
+                .split('\n')
+                .filter(col => col);
+            
+            const startIndex = row.cells.length - outputColumns.length;
+            
+            outputColumns.forEach((field, i) => {
+                const cell = row.cells[startIndex + i];
+                cell.textContent = data[field] || 'N/A';
+            });
+            
+            row.classList.remove('processing-row');
+            row.classList.add(data.company_name === 'N/A' ? 'error-row' : 'success-row');
+        }
+
+        // Исправляем функцию highlightProcessingRow
+        function highlightProcessingRow(index) {  // ��ыло (url)
+            const row = document.getElementById(`row-${index}`);  // теперь ищем по индексу
+            if (row) {
+                row.classList.add('processing-row');
+                row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+
+        // Константа для задержки
+        const REQUEST_DELAY = 30500; // 30.5 секунд в миллисекундах
+
+        // И упрощаем функцию processUrls, убирая лишнее логирование
+        async function processUrls(data) {
+            let lastRequestTime = 0;
+
+            for (let i = 0; i < data.length && isProcessing; i++) {
+                const row = data[i];
+                const url = row.url || row.URL || row.Website || row.website || row.WEBSITE || row.Domain || row.domain;
+                if (!url) continue;
+
+                const cleanedUrl = cleanUrl(url);
+                highlightProcessingRow(i);
+                updateStatus(`Processing: ${cleanedUrl}`, i + 1, data.length);
+
+                const currentTime = Date.now();
+                const timeSinceLastRequest = currentTime - lastRequestTime;
+                
+                if (timeSinceLastRequest < REQUEST_DELAY) {
+                    await new Promise(resolve => setTimeout(resolve, REQUEST_DELAY - timeSinceLastRequest));
+                }
+
+                try {
+                    lastRequestTime = Date.now();
+                    const response = await makeRequest(cleanedUrl, GEMINI_API_KEY);
+                    const jsonData = extractJsonFromResponse(response);
+                    updateTableRow(i, jsonData);
+                    
+                    results.push({
+                        ...row,
+                        ...jsonData,
+                        timestamp: new Date().toISOString()
+                    });
+                } catch (error) {
+                    console.error(`Error processing ${cleanedUrl}:`, error);
+                    const errorResponse = createEmptyResponse();
+                    errorResponse[Object.keys(errorResponse)[0]] = error.message;
+                    updateTableRow(i, errorResponse);
+                }
+            }
+            
+            isProcessing = false;
+            updateStatus('Processing completed', data.length, data.length);
+        }
+
+        // Обновляем функцию startProcessing
+        function startProcessing() {
+            if (!GEMINI_API_KEY) {
+                alert('Please set your Gemini API Key first');
+                showApiKeyForm();
+                return;
+            }
+            
+            const table = document.getElementById('resultsTable');
+            if (!table || table.rows.length <= 1) {
+                alert('Please upload data file first');
+                return;
+            }
+            
+            // Обновляем к��лонки перед началом анализа
+            updateTableColumns();
+            
+            isProcessing = true;
+            const data = tableToData();
+            processUrls(data);
+        }
+
+        // Функция для преобразования таблицы в массив объектов
+        function tableToData() {
+            const table = document.getElementById('resultsTable');
+            const headers = Array.from(table.rows[0].cells).map(cell => cell.textContent);
+            const data = [];
+            
+            for (let i = 1; i < table.rows.length; i++) {
+                const row = table.rows[i];
+                const rowData = {};
+                headers.forEach((header, j) => {
+                    rowData[header] = row.cells[j].textContent;
+                });
+                data.push(rowData);
+            }
+            
+            return data;
+        }
+
+        function stopProcessing() {
+            isProcessing = false;
+            updateStatus('Processing stopped');
+        }
+
+        function downloadResults() {
+            const blob = new Blob([JSON.stringify(results, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `results_${new Date().toISOString()}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // Функции для работы с пресетами
+        async function updatePresetList() {
+            const presets = getPresets();
+            const select = document.getElementById('presetSelect');
+            select.innerHTML = '<option value="">Select preset...</option>';
+            
+            Object.keys(presets).forEach(name => {
+                const option = document.createElement('option');
+                option.value = name;
+                option.textContent = name;
+                select.appendChild(option);
+            });
+        }
+
+        function loadPreset() {
+            const presetName = document.getElementById('presetSelect').value;
+            if (!presetName) return;
+            
+            const presets = getPresets();
+            const preset = presets[presetName];
+            if (!preset) return;
+            
+            document.getElementById('promptTemplate').value = preset.prompt;
+            document.getElementById('outputColumns').value = preset.columns;
+            
+            // Обновляем колонки если таблица уже создана
+            const table = document.getElementById('resultsTable');
+            if (table && table.rows.length > 0) {
+                updateTableColumns();
+            }
+        }
+
+        function showSavePresetDialog() {
+            document.getElementById('savePresetDialog').style.display = 'block';
+            document.getElementById('presetName').focus();
+        }
+
+        function hideSavePresetDialog() {
+            document.getElementById('savePresetDialog').style.display = 'none';
+            document.getElementById('presetName').value = '';
+        }
+
+        function savePreset() {
+            const name = document.getElementById('presetName').value.trim();
+            if (!name) {
+                alert('Please enter preset name');
+                return;
+            }
+            
+            const presets = getPresets();
+            presets[name] = {
+                prompt: document.getElementById('promptTemplate').value,
+                columns: document.getElementById('outputColumns').value
+            };
+            
+            if (savePresets(presets)) {
+                updatePresetList();
+                hideSavePresetDialog();
+                alert('Preset saved successfully');
+            } else {
+                alert('Error saving preset');
+            }
+        }
+
+        function deletePreset() {
+            const name = document.getElementById('presetSelect').value;
+            if (!name || !confirm(`Delete preset "${name}"?`)) return;
+            
+            const presets = getPresets();
+            delete presets[name];
+            
+            if (savePresets(presets)) {
+                updatePresetList();
+                alert('Preset deleted');
+            } else {
+                alert('Error deleting preset');
+            }
+        }
+
+        // Добавляем функции импорта/экспорта
+        function exportPresets() {
+            const presets = getPresets();
+            const blob = new Blob([JSON.stringify(presets, null, 2)], {
+                type: 'application/json'
+            });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `webmatrix_presets_${new Date().toISOString()}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function importPresets(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const importedPresets = JSON.parse(e.target.result);
+                    const currentPresets = getPresets();
+                    
+                    // Объединяем пресеты
+                    const mergedPresets = { ...currentPresets, ...importedPresets };
+                    
+                    if (savePresets(mergedPresets)) {
+                        updatePresetList();
+                        alert('Presets imported successfully');
+                    } else {
+                        alert('Error importing presets');
+                    }
+                } catch (e) {
+                    console.error('Import error:', e);
+                    alert('Error importing presets: Invalid file format');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // Функции для работы с localStorage
+        function getPresets() {
+            try {
+                const presets = localStorage.getItem('webmatrix_presets');
+                return presets ? JSON.parse(presets) : {};
+            } catch (e) {
+                console.error('Error loading presets:', e);
+                return {};
+            }
+        }
+
+        function savePresets(presets) {
+            try {
+                localStorage.setItem('webmatrix_presets', JSON.stringify(presets));
+                return true;
+            } catch (e) {
+                console.error('Error saving presets:', e);
+                return false;
+            }
+        }
+
+        // Функция для загрузки Excel/CSV файла
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                let data;
+                if (file.name.endsWith('.csv')) {
+                    data = parseCSV(e.target.result);
+                } else if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+                    const workbook = XLSX.read(e.target.result, {type: 'binary'});
+                    data = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+                }
+                initTableWithData(data);
+            };
+            
+            if (file.name.endsWith('.csv')) {
+                reader.readAsText(file);
+            } else {
+                reader.readAsBinaryString(file);
+            }
+        }
+
+        // Функция для инициализации таблиц с данными
+        function initTableWithData(data) {
+            if (!data || !data.length) {
+                alert('No data found in file');
+                return;
+            }
+            
+            // Получаем колонки
+            const inputColumns = Object.keys(data[0]);
+            const outputColumns = document.getElementById('outputColumns').value.trim().split('\n');
+            const allColumns = [...inputColumns, ...outputColumns];
+            
+            // Создаем заголовки
+            const headerRow = document.getElementById('headerRow');
+            headerRow.innerHTML = allColumns.map(h => `<th>${h}</th>`).join('');
+            
+            // Создаем строки с данными
+            const tbody = document.getElementById('resultsBody');
+            tbody.innerHTML = '';
+            
+            data.forEach((row, index) => {
+                const tr = tbody.insertRow();
+                tr.id = `row-${index}`;
+                
+                // Заполняем существующие данные
+                inputColumns.forEach(col => {
+                    const cell = tr.insertCell();
+                    const content = row[col] || '';
+                    cell.textContent = formatCellContent(content);
+                    cell.title = content; // Полный текст в тулти��е
+                });
+                
+                // Добавляем ячейки для результатов
+                outputColumns.forEach(() => {
+                    const cell = tr.insertCell();
+                    cell.textContent = 'Pending...';
+                });
+            });
+        }
+
+        // Функция для форматирования содержимого ячейки
+        function formatCellContent(content, maxLength = 50) {
+            if (content === null || content === undefined) return 'N/A';
+            
+            content = content.toString();
+            if (content.length <= maxLength) return content;
+            
+            return content.substring(0, maxLength) + '...';
+        }
+
+        // Обновляем стили для таблицы
+        const styles = `
+            .table-container {
+                max-height: 600px;
+                overflow-y: auto;
+                border: 1px solid #ddd;
+            }
+            
+            #resultsTable {
+                width: 100%;
+                border-collapse: collapse;
+                table-layout: fixed; /* Фиксированная ширина колонок */
+            }
+            
+            #resultsTable th, #resultsTable td {
+                border: 1px solid #ddd;
+                padding: 8px;
+                text-align: left;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                max-width: 200px; /* Максимальная ширина ячейки */
+            }
+            
+            #resultsTable th {
+                position: sticky;
+                top: 0;
+                background: white;
+                z-index: 1;
+            }
+            
+            #resultsTable td:hover {
+                white-space: normal;
+                word-wrap: break-word;
+                background-color: #f8f9fa;
+                position: relative;
+            }
+            
+            /* Тултип для полного текста */
+            #resultsTable td[title]:hover::after {
+                content: attr(title);
+                position: absolute;
+                bottom: 100%;
+                left: 0;
+                background: #333;
+                color: white;
+                padding: 5px;
+                border-radius: 3px;
+                max-width: 300px;
+                word-wrap: break-word;
+                z-index: 2;
+            }
+        `;
+
+        // Обновляем функцию updateTableRow для работы с новым форматом
+        function updateTableRow(index, data) {
+            const row = document.getElementById(`row-${index}`);
+            if (!row) return;
+            
+            const outputColumns = document.getElementById('outputColumns').value.trim().split('\n');
+            const startIndex = row.cells.length - outputColumns.length;
+            
+            outputColumns.forEach((field, i) => {
+                const cell = row.cells[startIndex + i];
+                const content = data[field] || 'N/A';
+                cell.textContent = formatCellContent(content);
+                cell.title = content; // Полный текст в тултипе
+            });
+            
+            row.classList.remove('processing-row');
+            row.classList.add(data.company_name === 'N/A' ? 'error-row' : 'success-row');
+        }
+
+        // Функция для парсинга CSV
+        function parseCSV(text) {
+            const lines = text.split('\n');
+            const headers = lines[0].split(',').map(h => h.trim());
+            const data = [];
+            
+            for (let i = 1; i < lines.length; i++) {
+                if (!lines[i].trim()) continue;
+                const values = lines[i].split(',');
+                const row = {};
+                headers.forEach((header, index) => {
+                    row[header] = values[index] ? values[index].trim() : '';
+                });
+                data.push(row);
+            }
+            
+            return data;
+        }
+
+        // Функция для обновленя колонок таблицы
+        function updateTableColumns() {
+            const table = document.getElementById('resultsTable');
+            if (!table || table.rows.length === 0) return;
+            
+            const inputColumns = Array.from(table.rows[0].cells)
+                .slice(0, -document.getElementById('outputColumns').value.trim().split('\n').length)
+                .map(cell => cell.textContent);
+            
+            const outputColumns = document.getElementById('outputColumns').value.trim().split('\n');
+            const allColumns = [...inputColumns, ...outputColumns];
+            
+            // Обновляем заголовки
+            const headerRow = document.getElementById('headerRow');
+            headerRow.innerHTML = allColumns.map(h => `<th>${h}</th>`).join('');
+            
+            // Обновляем все строки
+            const tbody = document.getElementById('resultsBody');
+            Array.from(tbody.rows).forEach((row, index) => {
+                // Сохраняем существующие данные
+                const existingData = {};
+                inputColumns.forEach((col, i) => {
+                    existingData[col] = row.cells[i].textContent;
+                });
+                
+                // Пересоздаем строку
+                row.innerHTML = '';
+                
+                // Восстанавливаем входные данные
+                inputColumns.forEach(col => {
+                    const cell = row.insertCell();
+                    cell.textContent = existingData[col];
+                });
+                
+                // Добавляем ячейки для рзультаов
+                outputColumns.forEach(() => {
+                    const cell = row.insertCell();
+                    cell.textContent = 'Pending...';
+                });
+            });
+        }
+
+        // Функция очистки для любых строк, которые ����огут содержать URL
+        function cleanPossibleUrl(text) {
+            // Если текст похож на URL, очищаем его
+            if (text.includes('.') && (text.includes('http') || text.includes('www') || text.includes('/'))) {
+                return text.replace(/^(https?:\/\/)?(www\.)?/i, '').split('/')[0].trim();
+            }
+            return text;
+        }
+
+        // Обновляем функцию generatePrompt
+        async function generatePrompt() {
+            const userTask = document.getElementById('promptTemplate').value.trim();
+            if (!userTask) {
+                alert('Please describe your task in the prompt field');
+                return;
+            }
+            
+            // Получем данные из таблицы для контекста
+            const table = document.getElementById('resultsTable');
+            let tableContext = '';
+            if (table && table.rows.length > 0) {
+                const headers = Array.from(table.rows[0].cells).map(cell => cell.textContent);
+                tableContext = `Available input columns: ${headers.join(', ')}\n\n`;
+                
+                // Добавляем примеры данных (первые 2 строки)
+                if (table.rows.length > 1) {
+                    tableContext += 'Sample data:\n';
+                    for (let i = 1; i < Math.min(table.rows.length, 3); i++) {
+                        const rowData = Array.from(table.rows[i].cells).map(cell => cell.textContent);
+                        tableContext += `Row ${i}: ${rowData.join(' | ')}\n`;
+                    }
+                }
+            }
+            
+            const metaPrompt = `CRITICAL REQUIREMENTS:
+Your response MUST be at least 3000 characters and STRICTLY follow the format below.
+Any deviation from the format will cause system errors.
+
+<INSTRUCTIONS>
+You are an expert in creating prompts for data analysis. Your task is to create a detailed prompt that will be used by an AI model for line-by-line data analysis in an automated system.
+
+The prompt you create will be used as a template, where values from columns marked as {{column_name}} will be automatically substituted.
+Some columns are filled with data - this is the source material, refer to them in the prompt if the data will help the model in analysis.
+Other columns (optionally) will be filled with "Pending..." - these columns are intended for model responses, list them at the end of the answer. You can add columns for responses if necessary, but no more than 10 questions to the model.
+The prompt must contain questions for the model corresponding to each response column, and require answers in json format, without additional text (the response is processed by the program)
+Give detailed, comprehensive instructions for the model, with examples and explanations of how to handle non-standard situations.
+
+Available data context:
+${tableContext}
+
+User task description:
+"${userTask}"
+
+</INSTRUCTIONS>
+
+<PROMPT REQUIREMENTS>
+
+1. Prompt structure must contain:
+   - Clear description of analysis task
+   - Detailed data processing instructions
+   - Questions and tasks for the model
+   - Result validation rules
+   - Response formats for different situations
+   - Examples of good and bad responses, example response for errors or non-standard situations
+   - Write prompt in English unless user explicitly requested another language
+
+2. Data handling rules for the model:
+   - Reference available columns through {{column_name}}
+   - Strip URLs of protocols and www, try accessing site again once if failed
+   - Check availability of data sources
+   - Validate input data
+   - Make no assumptions when data is missing
+
+3. JSON response format for model:
+   - Flat structure only (no nested objects or arrays)
+   - Numerical ratings on 0-10 scale
+   - Text fields for descriptions and comments
+   - "N/A" for missing data
+   - Mandatory field for errors/issues description
+
+4. Mandatory response examples in composed prompt
+   - Successful response example
+   - Limited data example
+   - Non-standard situation response example
+
+5. Special instructions:
+   - Do not use personal data (contacts, names) unless explicitly required by the task
+   - Avoid binary assessments (yes/no), use 0-10 scale
+   - Always indicate data source
+   - Describe reasons for low ratings
+   - Note uncertainty in data
+
+6. Must include in prompt:
+    - Set model role based on task and data type
+    - Requirement not to make assumptions, write either verified data or report verification impossibility
+    - If task requires visiting sites, give explicit instruction for model to visit site and reference URL column
+    - Questions and tasks for model
+    - 3 JSON response examples - good analysis result, negative and response for non-standard situation
+    - Requirement to respond strictly in specified JSON structure and explanation that data is parsed by program
+
+7. User interaction instructions:
+   - Prompt must be written in English unless user requested another language
+   - If you received a valid prompt in another language - translate it to English
+   - User can write instructions both for you and for inclusion in prompt. Distinguish them and process correctly
+   - If user didn't provide table Case Description - write at beginning of prompt, highlighted in red html tag, that there's no data for table analysis (user task description), need to upload file and click "magic" button again
+
+REMEMBER, excessive prompt is better than insufficient. Success of large data volume analysis depends on quality of your work. Write detailed prompt as if writing instruction for human.
+
+
+
+</PROMPT REQUIREMENTS>
+
+<COMPLETE_RESPONSE_EXAMPLE>
+===PROMPT_START===
+Here's an example of a complete, properly formatted response:
+
+PROMPT:
+You are an experienced financial analyst evaluating companies for potential fintech service sales. Your task is to analyze the company's website and determine if they could benefit from international payment solutions.
+
+NALYSIS INSTRUCTIONS:
+1. Website Access:
+   - Try opening site {{website}} without http/https/www
+   - Make one retry attempt if failed
+   - Return error response if site remains inaccessible
+
+2. Company Analysis:
+   - Determine exact name and business type
+   - Assess operation scale and geographic presence
+   - Analyze current financial services and international activities
+   - Find evidence of cross-border operations
+   
+3. Potential Assessment:
+   - Rate international presence (0-10)
+   - Rate technical readiness (0-10)
+   - Rate target profile match (0-10)
+   
+4. Evidence Collection:
+   - Check About/Services sections
+   - Look for international operations mentions
+   - Find international office locations
+   - Document specific countries/regions
+   - Save URLs with evidence
+
+5. Data Validation:
+   - Use only publicly available information
+   - Make no assumptions without evidence
+   - Note any uncertainty in assessments
+   - Indicate data sources
+   - Document any access issues
+
+RESPONSE FORMAT:
+Return strictly JSON format without additional text:
+
+{
+    "company_name": "Exact name or domain",
+    "has_international_offices": boolean,
+    "has_currency_exchange": boolean,
+    "has_money_transfer": boolean,
+    "sales_potential": number (0-5),
+    "estimated_yearly_fx_volume": "Estimate or N/A",
+    "locations": "List of countries/regions or N/A",
+    "company_summary": "Brief description up to 300 characters",
+    "lead_quality_notes": "Important observations, limitations",
+    "proof_url": "URL with evidence or N/A"
+}
+
+RESPONSE EXAMPLES:
+
+Successful analysis:
+{
+    "company_name": "Global Trade Solutions",
+    "has_international_offices": true,
+    "has_currency_exchange": true,
+    "has_money_transfer": true,
+    "sales_potential": 5,
+    "estimated_yearly_fx_volume": ">$10M",
+    "locations": "USA, EU, Asia",
+    "company_summary": "Large trading platform with developed international infrastructure",
+    "lead_quality_notes": "High potential, ready infrastructure, active international operations",
+    "proof_url": "globaltrade.com/about"
+}
+
+Limited data:
+{
+    "company_name": "Local Shop",
+    "has_international_offices": false,
+    "has_currency_exchange": false,
+    "has_money_transfer": false,
+    "sales_potential": 1,
+    "estimated_yearly_fx_volume": "N/A",
+    "locations": "Local only",
+    "company_summary": "Local shop without international presence",
+    "lead_quality_notes": "Limited potential, no signs of international operations",
+    "proof_url": "localshop.com"
+}
+
+Error:
+{
+    "company_name": "N/A",
+    "has_international_offices": false,
+    "has_currency_exchange": false,
+    "has_money_transfer": false,
+    "sales_potential": 0,
+    "estimated_yearly_fx_volume": "N/A",
+    "locations": "N/A",
+    "company_summary": "Site inaccessible",
+    "lead_quality_notes": "Error: [exact problem description]",
+    "proof_url": "N/A"
+}
+===PROMPT_END===
+===COLUMNS_START===
+company_name
+has_international_offices
+has_currency_exchange
+has_money_transfer
+sales_potential
+estimated_yearly_fx_volume
+locations
+company_summary
+lead_quality_notes
+proof_url
+===COLUMNS_END===
+</COMPLETE_RESPONSE_EXAMPLE>
+
+<PROMPT_REQUIREMENTS>
+Your prompt MUST include:
+1. Clear definition of model's role
+2. Detailed step-by-step analysis instructions
+3. Specific data processing and validation rules
+4. Exact JSON response format specification
+5. Three complete response examples (success, limited, error)
+6. Instructions for handling non-standard situations
+
+Prompt must be comprehensive and self-contained, minimum 3000 characters.
+</PROMPT_REQUIREMENTS>
+
+<RESPONSE_FORMAT_RULES>
+1. Response must exactly match COMPLETE_RESPONSE_EXAMPLE format
+2. Prompt section must be at least 3000 characters
+3. Must have up to 10 specified output columns
+4. No explanatory text outside specified sections
+5. Column names must exactly match specification
+6. JSON format must exactly match examples
+7. Special instructions:
+   - Don't use personal data (contacts, names) unless task explicitly requires it
+   - Avoid binary assessments (yes/no), use 0-10 scale
+   - Always indicate data source
+   - Describe reasons for low ratings
+   - Note uncertainty in data
+
+8. Must include in prompt:
+    - Set model role based on task and data type
+    - Requirement not to make assumptions, write either verified data or report verification impossibility
+    - If task requires visiting sites, give explicit instruction for model to visit site and reference URL column
+    - Questions and tasks for model
+    - 3 json response examples - good analysis result, negative and response for non-standard situation
+    - Requirement to respond strictly in specified Json structure and explanation that data is parsed by program
+    - References to data column names in double curly braces {{}}, needed by model for analysis. But not including column names with "Pending...". If column contains url - give direct instruction to visit it.
+
+IMPORTANT:
+- Don't include existing columns from input data
+- Don't add explanations after COLUMNS_END or before prompt - your response is processed by program
+- Use only letters, numbers and underscores in column names
+- Your response must contain only prompt between ===PROMPT_START=== and ===PROMPT_END=== and columns section between ===COLUMNS_START=== and ===COLUMNS_END=== separators, this is critically important
+- Don't add anything to response except prompt and columns section at the end!
+- Write prompt in English unless user requested another language
+
+CRITICALLY IMPORTANT:
+Write prompt in full compliance with response format and CAREFULLY follow all instructions, and require the same from the model.
+Remember that prompt will be used by automated analysis system, and your mistake could be very costly, while energy for erroneous analysis will leave carbon footprint unnecessarily.
+
+REMEMBER, excessive prompt is better than insufficient. Success of large data volume analysis depends on quality of your work. Write detailed prompt as if writing instruction for human.
+
+</RESPONSE_FORMAT_RULES>`;
+
+            try {
+                const response = await fetch(
+                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            contents: [{
+                                parts: [{
+                                    text: metaPrompt
+                                }]
+                            }]
+                        })
+                    }
+                );
+                
+                const result = await response.json();
+                if (result.candidates && result.candidates[0].content.parts[0].text) {
+                    const text = result.candidates[0].content.parts[0].text;
+                    
+                    // Показываем полный ответ для отладки
+                    console.log('Full AI response:', text);
+                    
+                    // Ищем промпт с учетом возможных разделителей
+                    let promptText;
+                    let columnsText;
+                    
+                    // Пробуем найти промпт между разделителями
+                    const promptWithDelimiters = text.match(/===PROMPT_START===([\s\S]*?)===PROMPT_END===/);
+                    if (promptWithDelimiters) {
+                        promptText = promptWithDelimiters[1].trim();
+                    } else {
+                        // Если нет разделителей, ищем по старой схеме
+                        const promptMatch = text.match(/PROMPT:([\s\S]*?)===COLUMNS_START===/);
+                        if (promptMatch) {
+                            promptText = promptMatch[1].trim();
+                        }
+                    }
+                    
+                    // Ищем колонки
+                    const columnsMatch = text.match(/===COLUMNS_START===\n([\s\S]*?)===COLUMNS_END===/);
+                    if (columnsMatch) {
+                        columnsText = columnsMatch[1].trim();
+                    }
+                    
+                    if (promptText && columnsText) {
+                        // Фильтруем колонки
+                        const columns = columnsText
+                            .split('\n')
+                            .map(col => col.trim())
+                            .filter(col => {
+                                return col && 
+                                       !col.startsWith('-') && 
+                                       !col.startsWith('*') && 
+                                       !col.includes(' ') &&
+                                       /^[a-zA-Z0-9_]+$/.test(col);
+                            })
+                            .join('\n');
+                        
+                        // Обновляем поля
+                        document.getElementById('promptTemplate').value = promptText;
+                        document.getElementById('outputColumns').value = columns;
+                        
+                        // Обновляем колонки в таблице если она уже создана
+                        const table = document.getElementById('resultsTable');
+                        if (table && table.rows.length > 0) {
+                            updateTableColumns();
+                        }
+                    } else {
+                        // Показываем полный ответ в случае ошибки
+                        alert('Error: Invalid response format. Full response:\n\n' + text);
+                    }
+                } else {
+                    // Показываем структуру ответа если нет текста
+                    alert('Error: Unexpected API response structure:\n\n' + JSON.stringify(result, null, 2));
+                }
+            } catch (error) {
+                console.error('Error generating prompt:', error);
+                alert('Error generating prompt. Please try again.');
+            }
+        }
+
+        function updateApiKeyStatus() {
+            const message = document.getElementById('apiKeyMessage');
+            const button = document.getElementById('apiKeyButton');
+            
+            if (GEMINI_API_KEY) {
+                message.textContent = 'API Key is set';
+                message.style.color = '#28a745';
+                button.textContent = 'Change API Key';
+            } else {
+                message.textContent = 'API Key required';
+                message.style.color = '#dc3545';
+                button.textContent = 'Set API Key';
+            }
+        }
+
+        function showApiKeyForm() {
+            document.getElementById('apiKeyForm').style.display = 'flex';
+            document.getElementById('apiKeyInput').focus();
+        }
+
+        function hideApiKeyForm() {
+            document.getElementById('apiKeyForm').style.display = 'none';
+            document.getElementById('apiKeyInput').value = '';
+        }
+
+        function saveApiKey() {
+            const apiKey = document.getElementById('apiKeyInput').value.trim();
+            if (!apiKey) {
+                alert('Please enter API Key');
+                return;
+            }
+            
+            try {
+                localStorage.setItem('gemini_api_key', apiKey);
+                GEMINI_API_KEY = apiKey;
+                updateApiKeyStatus();
+                hideApiKeyForm();
+            } catch (e) {
+                alert('Error saving API Key to localStorage');
+                console.error('Storage error:', e);
+            }
+        }
+
+        function showExportPresetDialog() {
+            document.getElementById('exportPresetDialog').style.display = 'block';
+            const defaultName = `webmatrix_presets_${new Date().toISOString().split('T')[0]}`;
+            document.getElementById('exportPresetName').value = defaultName;
+            document.getElementById('exportPresetName').focus();
+        }
+
+        function hideExportPresetDialog() {
+            document.getElementById('exportPresetDialog').style.display = 'none';
+            document.getElementById('exportPresetName').value = '';
+        }
+
+        function doExportPresets() {
+            const fileName = document.getElementById('exportPresetName').value.trim();
+            if (!fileName) {
+                alert('Please enter file name');
+                return;
+            }
+            
+            const presets = getPresets();
+            const blob = new Blob([JSON.stringify(presets, null, 2)], {
+                type: 'application/json'
+            });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${fileName}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            hideExportPresetDialog();
+        }
+
+        function downloadCSV() {
+            const table = document.getElementById('resultsTable');
+            if (!table) return;
+            
+            let csv = [];
+            // Заголовки
+            let headers = [];
+            for (let cell of table.rows[0].cells) {
+                headers.push(cell.textContent);
+            }
+            csv.push(headers.join(','));
+            
+            // Данные
+            for (let i = 1; i < table.rows.length; i++) {
+                let row = [];
+                for (let cell of table.rows[i].cells) {
+                    let value = cell.textContent || '';
+                    // Экранируем запятые и кавычки
+                    if (value.includes(',') || value.includes('"')) {
+                        value = `"${value.replace(/"/g, '""')}"`;
+                    }
+                    row.push(value);
+                }
+                csv.push(row.join(','));
+            }
+            
+            const blob = new Blob(['\ufeff' + csv.join('\n')], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `results_${new Date().toISOString()}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // Переменные чата
+        let chatHistory = [];
+        const MAX_HISTORY = 100;
+        const MAX_CONTEXT = 10;
+
+        // Настройка поля ввода
+        function setupMessageInput() {
+            const input = document.getElementById('messageInput');
+            
+            // Обработка Enter для отправки
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+
+            // Автоматическое изменение высоты
+            input.addEventListener('input', function() {
+                // Если поле пустое - возвращаем начальную высоту
+                if (!this.value.trim()) {
+                    this.style.height = '100px';
+                    return;
+                }
+
+                // Сбрасываем высоту для правильного расчета
+                this.style.height = '100px';
+                
+                // Вычисляем новую высоту
+                const newHeight = Math.min(this.scrollHeight, window.innerHeight * 0.5);
+                
+                // Устанавливаем новую высоту
+                this.style.height = Math.max(100, newHeight) + 'px';
+            });
+        }
+
+        // Функции для рабоы с сообщениями
+        function addMessage(text, sender) {
+            const container = document.getElementById('chatContainer');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}-message`;
+
+            // Рендерим Markdown
+            const rendered = marked.parse(text, {
+                gfm: true, // GitHub Flavored Markdown
+                breaks: true, // Convert \n to <br>
+                highlight: function(code, lang) {
+                    if (lang && hljs.getLanguage(lang)) {
+                        try {
+                            const highlighted = hljs.highlight(code, { language: lang }).value;
+                            return `<div class="code-wrapper">
+                                        <button class="copy-button" onclick="copyCode(this)">Copy</button>
+                                        ${highlighted}
+                                    </div>`;
+                        } catch (err) {}
+                    }
+                    return code;
+                }
+            });
+
+            messageDiv.innerHTML = rendered;
+
+            // Активируем подсветку синтаксиса
+            messageDiv.querySelectorAll('pre code').forEach((block) => {
+                hljs.highlightBlock(block);
+            });
+
+            container.appendChild(messageDiv);
+            container.scrollTop = container.scrollHeight;
+
+            // Сохраняем в историю
+            chatHistory.push({ sender, text });
+            if (chatHistory.length > MAX_HISTORY) {
+                chatHistory.shift();
+            }
+            saveChatHistory();
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            if (!message) return;
+
+            // Добавляем сообщение пользователя
+            addMessage(message, 'user');
+            input.value = '';
+            input.style.height = '100px'; // Сбрасываем высоту
+
+            // Получаем контекст если включены чекбоксы
+            const context = getContext();
+
+            // Отправляем запрос к API
+            sendToAPI(message, context);
+        }
+
+        // Функции для работы с контекстом
+        function getContext() {
+            const context = {
+                systemPrompt: document.getElementById('systemPrompt').value,
+                showTable: document.getElementById('showTable').checked,
+                showPreset: document.getElementById('showPreset').checked,
+                history: chatHistory.slice(-MAX_CONTEXT)
+            };
+
+            // Добавляем данные таблицы если включено
+            if (context.showTable) {
+                context.tableData = getTableData();
+            }
+
+            // Добавляем пресет если включ��но
+            if (context.showPreset) {
+                context.preset = {
+                    prompt: document.getElementById('promptTemplate').value,
+                    columns: document.getElementById('outputColumns').value.split('\n')
+                };
+            }
+
+            return context;
+        }
+
+        // Функции для работы с API
+        async function sendToAPI(message, context) {
+            if (!GEMINI_API_KEY) {
+                addMessage('Please set your API key in the main interface', 'ai');
+                return;
+            }
+
+            try {
+                // Формируем промпт
+                let prompt = '';
+                
+                // Добавляем системный промпт если есть
+                if (context.systemPrompt) {
+                    prompt += context.systemPrompt + '\n\n';
+                }
+
+                // Добавляем данные таблицы если включено
+                if (context.showTable && context.tableData) {
+                    prompt += 'Current table data:\n' + 
+                             JSON.stringify(context.tableData, null, 2) + '\n\n';
+                }
+
+                // Добавляем пресет если включено
+                if (context.showPreset && context.preset) {
+                    prompt += 'Active preset:\n' +
+                             'Prompt: ' + context.preset.prompt + '\n' +
+                             'Columns: ' + context.preset.columns.join(', ') + '\n\n';
+                }
+
+                // Добавляем историю
+                if (context.history.length > 0) {
+                    prompt += 'Recent conversation:\n';
+                    context.history.forEach(msg => {
+                        prompt += `${msg.sender}: ${msg.text}\n`;
+                    });
+                    prompt += '\n';
+                }
+
+                // Добавляем текущее сообщение
+                prompt += `user: ${message}\n`;
+                prompt += 'assistant: ';
+
+                // Отправляем запрос к API
+                const response = await fetch(
+                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            contents: [{
+                                parts: [{
+                                    text: prompt
+                                }]
+                            }]
+                        })
+                    }
+                );
+
+                if (!response.ok) {
+                    throw new Error(`API request failed: ${response.status}`);
+                }
+
+                const result = await response.json();
+                const aiResponse = result.candidates[0].content.parts[0].text;
+                addMessage(aiResponse, 'ai');
+
+            } catch (error) {
+                console.error('API Error:', error);
+                addMessage('Error: ' + error.message, 'ai');
+            }
+        }
+
+        // Функции для работы с файлами
+        function setupDragAndDrop() {
+            const chatSection = document.querySelector('.chat-section');
+            const overlay = document.querySelector('.drag-overlay');
+            const loadingIndicator = document.querySelector('.loading-indicator');
+
+            // Предотвращаем стандартное поведение браузера
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                document.body.addEventListener(eventName, preventDefaults);
+                chatSection.addEventListener(eventName, preventDefaults);
+            });
+
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+
+            // Обработка перетаскивания
+            ['dragenter', 'dragover'].forEach(eventName => {
+                chatSection.addEventListener(eventName, highlight);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                chatSection.addEventListener(eventName, unhighlight);
+            });
+
+            function highlight() {
+                overlay.classList.add('active');
+            }
+
+            function unhighlight() {
+                overlay.classList.remove('active');
+            }
+
+            // Обработка сброса файлов
+            chatSection.addEventListener('drop', handleDrop);
+
+            async function handleDrop(e) {
+                const files = [...e.dataTransfer.files];
+                loadingIndicator.classList.add('active');
+
+                try {
+                    for (const file of files) {
+                        await processFile(file);
+                    }
+                } catch (error) {
+                    console.error('Error processing files:', error);
+                    addMessage(`Error processing files: ${error.message}`, 'system');
+                } finally {
+                    loadingIndicator.classList.remove('active');
+                }
+            }
+        }
+
+        async function processFile(file) {
+            const fileType = file.type || 'text/plain';
+            
+            try {
+                let content = '';
+                
+                if (fileType.startsWith('image/')) {
+                    const imageUrl = await readFileAsDataURL(file);
+                    content = `![${file.name}](${imageUrl})`;
+                } else if (fileType === 'application/pdf') {
+                    content = `PDF file uploaded: ${file.name}\nSize: ${formatFileSize(file.size)}`;
+                } else {
+                    const text = await file.text();
+                    
+                    const isCode = isCodeFile(file.name);
+                    if (isCode) {
+                        const extension = file.name.split('.').pop();
+                        content = '```' + extension + '\n' + text + '\n```';
+                    } else {
+                        content = text;
+                    }
+                }
+
+                const message = `File: ${file.name}\n\n${content}`;
+                addMessage(message, 'user');
+
+            } catch (error) {
+                throw new Error(`Error processing ${file.name}: ${error.message}`);
+            }
+        }
+
+        // Вспомогательные функции
+        function readFileAsDataURL(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function isCodeFile(filename) {
+            const codeExtensions = [
+                'js', 'jsx', 'ts', 'tsx', 'html', 'css', 'scss', 'less',
+                'py', 'java', 'cpp', 'c', 'cs', 'go', 'rb', 'php',
+                'sql', 'sh', 'bash', 'md', 'json', 'xml', 'yaml', 'yml'
+            ];
+            const extension = filename.split('.').pop().toLowerCase();
+            return codeExtensions.includes(extension);
+        }
+
+        function copyCode(button) {
+            const codeBlock = button.parentElement.querySelector('code');
+            const text = codeBlock.textContent;
+            
+            navigator.clipboard.writeText(text).then(() => {
+                const originalText = button.textContent;
+                button.textContent = 'Copied!';
+                setTimeout(() => {
+                    button.textContent = originalText;
+                }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+                alert('Failed to copy code');
+            });
+        }
+
+        // Функции для работы с localStorage
+        function saveChatHistory() {
+            try {
+                localStorage.setItem('webmatrix_chat_history', JSON.stringify(chatHistory));
+            } catch (e) {
+                console.error('Error saving chat history:', e);
+            }
+        }
+
+        function loadChatHistory() {
+            try {
+                const saved = localStorage.getItem('webmatrix_chat_history');
+                if (saved) {
+                    chatHistory = JSON.parse(saved);
+                    chatHistory.forEach(msg => addMessage(msg.text, msg.sender));
+                }
+            } catch (e) {
+                console.error('Error loading chat history:', e);
+            }
+        }
+
+        function clearHistory() {
+            if (confirm('Clear chat history?')) {
+                chatHistory = [];
+                localStorage.removeItem('webmatrix_chat_history');
+                document.getElementById('chatContainer').innerHTML = '';
+            }
+        }
+
+        // Функции для работы с промптами
+        function loadPrompt() {
+            const prompts = JSON.parse(localStorage.getItem('webmatrix_prompts') || '{}');
+            const select = document.createElement('select');
+            select.innerHTML = Object.keys(prompts).map(name => 
+                `<option value="${name}">${name}</option>`
+            ).join('');
+
+            const dialog = document.createElement('div');
+            dialog.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:white;padding:20px;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,0.1);';
+            dialog.innerHTML = `
+                <h3>Load Prompt</h3>
+                ${select.outerHTML}
+                <div class="button-group" style="margin-top:15px">
+                    <button class="primary" onclick="loadSelectedPrompt('${select.value}');this.parentElement.parentElement.remove()">Load</button>
+                    <button class="warning" onclick="this.parentElement.parentElement.remove()">Cancel</button>
+                </div>
+            `;
+            document.body.appendChild(dialog);
+        }
+
+        function loadSelectedPrompt(name) {
+            const prompts = JSON.parse(localStorage.getItem('webmatrix_prompts') || '{}');
+            const prompt = prompts[name];
+            if (prompt) {
+                document.getElementById('systemPrompt').value = prompt;
+            }
+        }
+
+        function savePrompt() {
+            const prompt = document.getElementById('systemPrompt').value;
+            if (!prompt) {
+                alert('Please enter a prompt first');
+                return;
+            }
+
+            const dialog = document.createElement('div');
+            dialog.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:white;padding:20px;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,0.1);';
+            dialog.innerHTML = `
+                <h3>Save Prompt</h3>
+                <input type="text" placeholder="Enter prompt name" style="width:100%;margin:10px 0;padding:5px">
+                <div class="button-group">
+                    <button class="primary" onclick="savePromptWithName(this.parentElement.previousElementSibling.value);this.parentElement.parentElement.remove()">Save</button>
+                    <button class="warning" onclick="this.parentElement.parentElement.remove()">Cancel</button>
+                </div>
+            `;
+            document.body.appendChild(dialog);
+        }
+
+        function savePromptWithName(name) {
+            if (!name) {
+                alert('Please enter a name for the prompt');
+                return;
+            }
+
+            const prompts = JSON.parse(localStorage.getItem('webmatrix_prompts') || '{}');
+            prompts[name] = document.getElementById('systemPrompt').value;
+            localStorage.setItem('webmatrix_prompts', JSON.stringify(prompts));
+            alert('Prompt saved successfully');
+        }
+
+        function loadPromptFromFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('systemPrompt').value = e.target.result;
+            };
+            reader.readAsText(file);
+        }
+
+        function exportPrompt() {
+            const prompt = document.getElementById('systemPrompt').value;
+            if (!prompt) {
+                alert('No prompt to export');
+                return;
+            }
+
+            const blob = new Blob([prompt], { type: 'text/markdown' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `prompt_${new Date().toISOString()}.md`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        async function handleChatFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            await processFile(file);
+        }
+    </script>
+</body>
+</html>
