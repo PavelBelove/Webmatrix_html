@@ -1,0 +1,162 @@
+.settings-panel {
+  background-color: #f8f9fa;
+  padding: 15px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.api-status {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+#apiKeyMessage {
+  font-weight: 500;
+}
+
+#apiKeyForm {
+  margin-top: 10px;
+  display: flex;
+  gap: 10px;
+}
+
+#apiKeyInput {
+  flex-grow: 1;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.sub-collapsible {
+  background-color: #f8f9fa;
+  margin: 10px 0;
+  font-size: 14px;
+  padding: 12px;
+}
+
+.sub-panel {
+  padding: 15px;
+  background-color: white;
+  border: 1px solid #eee;
+  margin-bottom: 20px;
+}
+
+.presets-section {
+  margin: 20px 0;
+  padding: 15px;
+  background: #f8f9fa;
+  border-radius: 4px;
+}
+
+.presets-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.preset-select {
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  width: 100%;
+  margin-bottom: 10px;
+}
+
+.preset-dialog {
+  margin-top: 10px;
+  padding: 15px;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.preset-dialog input {
+  width: 100%;
+  padding: 8px;
+  margin-bottom: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+#promptTemplate,
+#outputColumns {
+  width: 100%;
+  min-height: 150px;
+  margin: 10px 0;
+  padding: 12px;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.checkbox-wrapper {
+  margin: 10px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.checkbox-wrapper input[type='checkbox'] {
+  margin: 0;
+}
+
+.checkbox-wrapper label {
+  font-size: 14px;
+  color: #666;
+}
+
+/* Стили для кнопок */
+.button-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 10px 0;
+}
+
+.button {
+  padding: 8px 15px;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 100px;
+}
+
+.button.primary {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+  border-color: #c8e6c9;
+}
+
+.button.warning {
+  background-color: #ffebee;
+  color: #c62828;
+  border-color: #ffcdd2;
+}
+
+.button.upload {
+  background-color: #f3e5f5;
+  color: #6a1b9a;
+  border-color: #e1bee7;
+}
+
+.button.download {
+  background-color: #e3f2fd;
+  color: #1565c0;
+  border-color: #bbdefb;
+}
+
+.button:hover {
+  opacity: 0.9;
+}
+
+.button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

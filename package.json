@@ -1,26 +1,58 @@
 {
+  "name": "webmatrix",
+  "version": "0.1.1",
+  "description": "LLM-powered data analysis tool",
+  "main": "src/index.js",
   "scripts": {
-    "build:community": "webpack --config config/webpack.community.js",
-    "build:enterprise": "webpack --config config/webpack.enterprise.js"
+    "start": "webpack serve --config webpack.dev.js",
+    "build": "webpack --config webpack.prod.js",
+    "build:dev": "webpack --config webpack.dev.js",
+    "dev": "webpack serve --config webpack.dev.js",
+    "clean": "rimraf dist",
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix"
   },
-  "name": "webmatrix_html",
-  "version": "1.0.0",
-  "main": ".eslintrc.js",
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
+  "keywords": [
+    "llm",
+    "data-analysis",
+    "ai",
+    "webpack",
+    "single-file-app"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "private": true,
   "devDependencies": {
-    "@babel/core": "^7.26.0",
-    "@babel/preset-env": "^7.26.0",
-    "babel-loader": "^9.2.1",
-    "css-loader": "^7.1.2",
-    "html-webpack-plugin": "^5.6.3",
-    "mini-css-extract-plugin": "^2.9.2",
-    "style-loader": "^4.0.0",
+    "@babel/core": "^7.24.0",
+    "@babel/plugin-transform-runtime": "^7.25.9",
+    "@babel/preset-env": "^7.24.0",
+    "@babel/runtime": "^7.26.0",
+    "@babel/runtime-corejs3": "^7.26.0",
+    "babel-loader": "^9.1.3",
+    "core-js": "^3.39.0",
+    "css-loader": "^6.10.0",
+    "css-minimizer-webpack-plugin": "^6.0.0",
+    "eslint": "^8.57.0",
+    "html-webpack-plugin": "^5.6.0",
+    "mini-css-extract-plugin": "^2.8.0",
+    "rimraf": "^5.0.5",
     "terser-webpack-plugin": "^5.3.10",
-    "webpack": "^5.96.1",
+    "webpack": "^5.90.3",
     "webpack-cli": "^5.1.4",
-    "webpack-dev-server": "^5.1.0"
+    "webpack-dev-server": "^5.0.2",
+    "webpack-merge": "^5.10.0"
+  },
+  "dependencies": {
+    "marked": "^12.0.0",
+    "xlsx": "^0.18.5"
+  },
+  "browserslist": [
+    "last 2 versions",
+    "not dead",
+    "> 0.2%"
+  ],
+  "engines": {
+    "node": ">=14.0.0",
+    "npm": ">=6.0.0"
   }
 }

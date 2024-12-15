@@ -1,0 +1,116 @@
+/* Base styles */
+body {
+  font-family:
+    'Segoe UI',
+    system-ui,
+    -apple-system,
+    sans-serif;
+  color: #2c3e50;
+  line-height: 1.6;
+  background-color: #f8f9fa;
+  padding: 20px;
+  max-width: 1400px;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+.container {
+  background-color: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  padding: 24px;
+  width: 100%;
+  margin-top: 20px;
+  box-sizing: border-box;
+}
+
+/* Form elements */
+textarea {
+  width: 100%;
+  height: 150px;
+  margin-bottom: 10px;
+  font-family: monospace;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 14px;
+  transition: border-color 0.2s ease;
+}
+
+textarea:focus,
+input[type='text']:focus,
+input[type='password']:focus {
+  border-color: #a5d6a7;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(165, 214, 167, 0.1);
+}
+
+/* Status and controls */
+.error {
+  color: red;
+}
+.success {
+  color: green;
+}
+
+#status {
+  margin: 10px 0;
+  font-weight: bold;
+}
+
+.controls {
+  margin-bottom: 20px;
+}
+
+button {
+  padding: 10px 20px;
+  margin-right: 10px;
+}
+
+.button-group {
+  margin: 25px 0;
+  display: flex;
+}
+
+/* Progress bar */
+.progress-bar {
+  height: 8px;
+  border-radius: 4px;
+  background-color: #f1f3f5;
+  margin: 20px 0;
+  width: 100%;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background-color: #a5d6a7;
+  transition: width 0.5s ease-in-out;
+  border-radius: 4px;
+}
+
+/* Layout */
+.input-section,
+.output-section {
+  flex: 1;
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 6px;
+  border: 3px solid #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}

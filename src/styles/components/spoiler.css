@@ -1,0 +1,32 @@
+.collapsible {
+  background-color: white;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  transition: all 0.2s ease;
+  color: #444;
+  cursor: pointer;
+  padding: 18px;
+  width: 100%;
+  text-align: left;
+  outline: none;
+  font-size: 15px;
+}
+
+.active,
+.collapsible:hover {
+  background-color: #f8f9fa;
+}
+
+.content {
+  padding: 0 18px;
+  display: none;
+  overflow: hidden;
+  background-color: #f1f1f1;
+}
+
+.settings-panel {
+  border: 1px solid #ccc;
+  padding: 15px;
+  margin-bottom: 20px;
+}
