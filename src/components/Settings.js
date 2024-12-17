@@ -1,14 +1,107 @@
+import { settingsStorage } from '../utils/storage';
+import { LLMProviderFactory } from '../utils/api';
 import { Spoiler } from './Spoiler';
 
 export class Settings {
-  constructor() {
+  constructor(onChange) {
+    this.onChange = onChange;
     this.element = document.createElement('div');
     this.element.className = 'settings-panel';
 
-    this.apiKey = localStorage.getItem('gemini_api_key') || '';
-    this.isCommercial = localStorage.getItem('is_commercial_key') === 'true';
+    // Загружаем сохраненные настройки
+    this.settings = settingsStorage.get('current') || {
+      activeProvider: 'gemini',
+      gemini: {
+        apiKey: '',
+        isCommercial: false,
+      },
+      openai: {
+        apiKey: '',
+      },
+      perplexity: {
+        apiKey: '',
+      },
+      models: {
+        gemini: ['gemini-1.5-pro'],
+        openai: ['gpt-4o', 'gpt-4o-mini'],
+        perplexity: ['pplx-7b', 'pplx-70b'],
+      },
+      selectedAssistantModel: 'gemini-1.5-pro',
+      selectedAnalysisModel: 'gemini-1.5-pro',
+    };
 
+    // Инициализируем провайдера если есть ключ
+    this.initializeProviders();
     this.init();
+  }
+
+  initializeProviders() {
+    const { activeProvider } = this.settings;
+    const providerSettings = this.settings[activeProvider];
+
+    console.log('Initializing providers:', {
+      activeProvider,
+      hasKey: !!providerSettings?.apiKey,
+      assistantModel: this.settings.selectedAssistantModel,
+      analysisModel: this.settings.selectedAnalysisModel,
+    });
+
+    if (providerSettings?.apiKey) {
+      try {
+        // Создаем провайдера для ассистентов
+        const assistantProvider = LLMProviderFactory.createProvider(
+          this.getProviderFromModel(this.settings.selectedAssistantModel),
+          providerSettings.apiKey,
+          {
+            isCommercial: providerSettings.isCommercial,
+            model: this.settings.selectedAssistantModel,
+          }
+        );
+
+        // Создаем провайдера для анализа
+        const analysisProvider = LLMProviderFactory.createProvider(
+          this.getProviderFromModel(this.settings.selectedAnalysisModel),
+          providerSettings.apiKey,
+          {
+            isCommercial: providerSettings.isCommercial,
+            model: this.settings.selectedAnalysisModel,
+          }
+        );
+
+        // Проверяем работоспособность провайдеров
+        Promise.all([assistantProvider.validateApiKey(), analysisProvider.validateApiKey()])
+          .then(() => {
+            console.log('Providers validated successfully');
+            this.settings.assistantProvider = assistantProvider;
+            this.settings.analysisProvider = analysisProvider;
+            // Уведомляем об изменениях только после успешной валидации
+            if (this.onChange) {
+              this.onChange(this.settings);
+            }
+          })
+          .catch(error => {
+            console.error('Failed to validate providers:', error);
+            providerSettings.apiKey = '';
+            this.settings.assistantProvider = null;
+            this.settings.analysisProvider = null;
+            this.saveSettings(this.settings);
+            alert('Invalid API key. Please check your settings.');
+          });
+      } catch (error) {
+        console.error('Failed to initialize providers:', error);
+        providerSettings.apiKey = '';
+        this.settings.assistantProvider = null;
+        this.settings.analysisProvider = null;
+        this.saveSettings(this.settings);
+      }
+    } else {
+      console.log('No API key found for provider:', activeProvider);
+      this.settings.assistantProvider = null;
+      this.settings.analysisProvider = null;
+      if (this.onChange) {
+        this.onChange(this.settings);
+      }
+    }
   }
 
   init() {
@@ -40,238 +133,372 @@ export class Settings {
       const apiKeySection = document.getElementById('apiKeySection');
       if (apiKeySection) {
         apiKeySpoiler.render(apiKeySection);
+
+        // Инициализируем обработчики событий ПОСЛЕ добавления всех элементов в DOM
+        this.initEventHandlers();
       }
     }, 0);
 
-    // Инициализируем обработчики событий
-    this.initEventHandlers();
+    // Обновляем визуальное состояние
+    this.updateProviderStatus();
   }
 
   createApiKeySection() {
+    const { gemini, openai, perplexity } = this.settings;
+
     return `
-      <div class="sub-panel">
-        <div id="apiKeyStatus" class="api-status">
-          <span id="apiKeyMessage">${this.apiKey ? 'API Key is set' : 'API Key required'}</span>
-          <button onclick="showApiKeyForm()" class="button primary" id="apiKeyButton">
-            ${this.apiKey ? 'Change API Key' : 'Set API Key'}
-          </button>
-        </div>
-        
-        <div id="apiKeyForm" style="display: none">
-          <input type="password" id="apiKeyInput" placeholder="Enter Gemini API Key" />
-          <div class="checkbox-wrapper">
-            <input type="checkbox" id="isCommercialKey" ${this.isCommercial ? 'checked' : ''} />
-            <label for="isCommercialKey">Commercial API Key (no rate limits)</label>
+      <div class="api-settings">
+        <div class="api-keys-row">
+          <!-- Gemini Settings -->
+          <div class="provider-settings ${
+            this.settings.activeProvider === 'gemini' ? 'active' : ''
+          }" data-provider="gemini">
+            <h3>Gemini</h3>
+            <div class="input-group">
+              <div class="key-input-wrapper">
+                <input type="text" 
+                       id="geminiKey" 
+                       placeholder="${gemini.apiKey ? 'API key is set' : 'Enter Gemini API key'}"
+                       value=""
+                       data-has-key="${!!gemini.apiKey}"
+                />
+                <div class="checkbox-wrapper">
+                  <input type="checkbox" 
+                         id="geminiCommercial" 
+                         ${gemini.isCommercial ? 'checked' : ''}
+                  />
+                  <label for="geminiCommercial">Commercial Key</label>
+                </div>
+              </div>
+            </div>
           </div>
-          <button onclick="saveApiKey()" class="button primary">Save</button>
-          <button onclick="hideApiKeyForm()" class="button warning">Cancel</button>
+
+          <!-- OpenAI Settings -->
+          <div class="provider-settings ${
+            this.settings.activeProvider === 'openai' ? 'active' : ''
+          }" data-provider="openai">
+            <h3>OpenAI</h3>
+            <input type="text" 
+                   id="openaiKey" 
+                   placeholder="${openai.apiKey ? 'API key is set' : 'Enter OpenAI API key'}"
+                   value=""
+                   data-has-key="${!!openai.apiKey}"
+            />
+          </div>
+
+          <!-- Perplexity Settings -->
+          <div class="provider-settings ${
+            this.settings.activeProvider === 'perplexity' ? 'active' : ''
+          }" data-provider="perplexity">
+            <h3>Perplexity</h3>
+            <input type="text" 
+                   id="perplexityKey" 
+                   placeholder="${
+                     perplexity.apiKey ? 'API key is set' : 'Enter Perplexity API key'
+                   }"
+                   value=""
+                   data-has-key="${!!perplexity.apiKey}"
+            />
+          </div>
+        </div>
+
+        <div class="settings-controls-row">
+          <!-- Model Selection -->
+          <div class="model-selections">
+            <div class="model-selection">
+              <h3>Assistant Model</h3>
+              <select id="assistantModelSelect">
+                ${this.getAvailableModels()
+                  .map(
+                    model => `
+                  <option value="${model}" ${
+                      model === this.settings.selectedAssistantModel ? 'selected' : ''
+                    }>
+                    ${this.getModelDisplayName(model)}
+                  </option>
+                `
+                  )
+                  .join('')}
+              </select>
+            </div>
+
+            <div class="model-selection">
+              <h3>Analysis Model</h3>
+              <select id="analysisModelSelect">
+                ${this.getAvailableModels()
+                  .map(
+                    model => `
+                  <option value="${model}" ${
+                      model === this.settings.selectedAnalysisModel ? 'selected' : ''
+                    }>
+                    ${this.getModelDisplayName(model)}
+                  </option>
+                `
+                  )
+                  .join('')}
+              </select>
+            </div>
+          </div>
+
+          <button id="saveApiSettings" class="primary">Save Settings</button>
         </div>
       </div>
     `;
   }
 
+  getAvailableModels() {
+    const models = [];
+    const { gemini, openai, perplexity } = this.settings;
+
+    if (gemini.apiKey) {
+      models.push(...this.settings.models.gemini);
+    }
+    if (openai.apiKey) {
+      models.push(...this.settings.models.openai);
+    }
+    if (perplexity.apiKey) {
+      models.push(...this.settings.models.perplexity);
+    }
+
+    return models;
+  }
+
+  getModelDisplayName(modelId) {
+    const displayNames = {
+      'gemini-1.5-pro': 'Gemini 1.5 Pro',
+      'gpt-4o': 'GPT-4 Optimized',
+      'gpt-4o-mini': 'GPT-4 Optimized Mini',
+      'pplx-7b': 'Perplexity 7B',
+      'pplx-70b': 'Perplexity 70B',
+    };
+    return displayNames[modelId] || modelId;
+  }
+
+  initEventHandlers() {
+    const saveBtn = document.getElementById('saveApiSettings');
+    if (!saveBtn) return;
+
+    saveBtn.addEventListener('click', () => {
+      try {
+        // Получаем значения
+        const geminiInput = document.getElementById('geminiKey');
+        const openaiInput = document.getElementById('openaiKey');
+        const perplexityInput = document.getElementById('perplexityKey');
+
+        // Если в поле что-то введено - используем это значение
+        // Если поле пустое, но есть сохраненный ключ - используем его
+        const geminiKey =
+          geminiInput.value.trim() ||
+          (geminiInput.dataset.hasKey === 'true' ? this.settings.gemini.apiKey : '');
+        const openaiKey =
+          openaiInput.value.trim() ||
+          (openaiInput.dataset.hasKey === 'true' ? this.settings.openai.apiKey : '');
+        const perplexityKey =
+          perplexityInput.value.trim() ||
+          (perplexityInput.dataset.hasKey === 'true' ? this.settings.perplexity.apiKey : '');
+
+        const isCommercial = document.getElementById('geminiCommercial')?.checked;
+        const selectedAssistantModel = document.getElementById('assistantModelSelect')?.value;
+        const selectedAnalysisModel = document.getElementById('analysisModelSelect')?.value;
+
+        // Определяем активного провайдера по выбранной модели
+        const activeProvider = this.getProviderFromModel(selectedAssistantModel);
+
+        const newSettings = {
+          ...this.settings,
+          activeProvider,
+          gemini: {
+            apiKey: geminiKey,
+            isCommercial,
+          },
+          openai: {
+            apiKey: openaiKey,
+          },
+          perplexity: {
+            apiKey: perplexityKey,
+          },
+          selectedAssistantModel,
+          selectedAnalysisModel,
+        };
+
+        // Создаем провайдера для активной модели
+        if (newSettings[activeProvider]?.apiKey) {
+          const provider = LLMProviderFactory.createProvider(
+            activeProvider,
+            newSettings[activeProvider].apiKey,
+            {
+              isCommercial: newSettings.gemini.isCommercial,
+              model: selectedAssistantModel,
+            }
+          );
+          newSettings.provider = provider;
+        }
+
+        // Сохраняем настройки
+        this.saveSettings(newSettings);
+
+        // Очищаем поля ввода
+        geminiInput.value = '';
+        openaiInput.value = '';
+        perplexityInput.value = '';
+
+        // Обновляем data-has-key
+        geminiInput.dataset.hasKey = !!newSettings.gemini.apiKey;
+        openaiInput.dataset.hasKey = !!newSettings.openai.apiKey;
+        perplexityInput.dataset.hasKey = !!newSettings.perplexity.apiKey;
+
+        // Обновляем плейсхолдеры
+        geminiInput.placeholder = newSettings.gemini.apiKey
+          ? 'API key is set'
+          : 'Enter Gemini API key';
+        openaiInput.placeholder = newSettings.openai.apiKey
+          ? 'API key is set'
+          : 'Enter OpenAI API key';
+        perplexityInput.placeholder = newSettings.perplexity.apiKey
+          ? 'API key is set'
+          : 'Enter Perplexity API key';
+
+        // Показываем уведомление об успехе
+        const apiSettings = document.querySelector('.api-settings');
+        apiSettings.classList.add('save-success');
+        setTimeout(() => apiSettings.classList.remove('save-success'), 500);
+      } catch (error) {
+        console.error('Error saving settings:', error);
+        alert('Failed to save settings: ' + error.message);
+      }
+    });
+
+    // Обработчики изменения ключей
+    ['geminiKey', 'openaiKey', 'perplexityKey'].forEach(id => {
+      const input = document.getElementById(id);
+      if (input) {
+        input.addEventListener('change', () => this.updateAvailableModels());
+      }
+    });
+  }
+
+  getProviderFromModel(modelId) {
+    if (modelId.startsWith('gemini')) return 'gemini';
+    if (modelId.startsWith('gpt')) return 'openai';
+    if (modelId.startsWith('pplx')) return 'perplexity';
+    return 'gemini'; // default
+  }
+
   createPresetsSection() {
-    const presets = this.loadPresets();
     return `
-      <h3>Presets</h3>
       <div class="presets-controls">
-        <select id="presetSelect" class="preset-select">
-          <option value="">Select preset...</option>
-          ${Object.keys(presets)
-            .map(
-              name => `
-            <option value="${name}">${name}</option>
-          `
-            )
-            .join('')}
-        </select>
-
-        <div class="button-group">
-          <button onclick="loadPreset()" class="primary">📂 Load</button>
-          <button onclick="showSavePresetDialog()" class="primary">💾 Save</button>
-          <button onclick="deletePreset()" class="warning">🗑️ Delete</button>
-
-          <input type="file" id="importPreset" accept=".json" style="display: none" />
-          <label for="importPreset" class="button upload">📥 Import Presets</label>
-          <button onclick="showExportPresetDialog()" class="download">📤 Export Presets</button>
-        </div>
-      </div>
-
-      <div id="savePresetDialog" style="display: none" class="preset-dialog">
-        <input type="text" id="presetName" placeholder="Enter preset name" />
-        <div class="button-group">
-          <button onclick="savePreset()" class="primary">Save</button>
-          <button onclick="hideSavePresetDialog()" class="warning">Cancel</button>
-        </div>
-      </div>
-
-      <div id="exportPresetDialog" style="display: none" class="preset-dialog">
-        <input type="text" id="exportPresetName" placeholder="Enter export file name" />
-        <div class="button-group">
-          <button onclick="doExportPresets()" class="primary">Export</button>
-          <button onclick="hideExportPresetDialog()" class="warning">Cancel</button>
-        </div>
+        <button id="loadPreset" class="secondary">📂 Load</button>
+        <button id="savePreset" class="secondary">💾 Save</button>
+        <button id="exportPresets" class="secondary">📤 Export</button>
+        <input type="file" id="importPresets" accept=".json" style="display: none;">
+        <button id="importPresetsBtn" class="secondary">📥 Import</button>
       </div>
     `;
   }
 
   createPromptSection() {
     return `
-      <h3>Prompt</h3>
-      <textarea id="promptTemplate">
-Analyze this website: {{url}}
-
-Your task is to evaluate if the company could benefit from international payment and fintech solutions.
-Return response in this JSON format only:
-{
-    "company_name": string,
-    "has_international_offices": boolean,
-    "has_currency_exchange": boolean,
-    "has_money_transfer": boolean,
-    "sales_potential": number (0-5),
-    "estimated_yearly_fx_volume": string,
-    "locations": string,
-    "company_summary": string,
-    "lead_quality_notes": string,
-    "proof_url": string
-}</textarea>
-
-      <h3>Output Columns (one per line)</h3>
-      <textarea id="outputColumns">
-company_name
-has_international_offices
-has_currency_exchange
-has_money_transfer
-sales_potential
-estimated_yearly_fx_volume
-locations
-company_summary
-lead_quality_notes
-proof_url</textarea>
+      <div class="prompt-section">
+        <textarea id="promptTemplate" placeholder="Enter prompt template...">${
+          this.settings.promptTemplate || ''
+        }</textarea>
+        <textarea id="outputColumns" placeholder="Enter output columns (one per line)">${
+          this.settings.outputColumns?.join('\n') || ''
+        }</textarea>
+      </div>
     `;
   }
 
-  loadPresets() {
-    try {
-      const presets = localStorage.getItem('webmatrix_presets');
-      return presets ? JSON.parse(presets) : {};
-    } catch (e) {
-      console.error('Error loading presets:', e);
-      return {};
+  saveSettings(settings) {
+    console.log('Saving settings:', {
+      ...settings,
+      assistantProvider: settings.assistantProvider?.name,
+      analysisProvider: settings.analysisProvider?.name,
+      gemini: { ...settings.gemini, apiKey: '***' },
+      openai: { ...settings.openai, apiKey: '***' },
+      perplexity: { ...settings.perplexity, apiKey: '***' },
+    });
+
+    this.settings = settings;
+
+    // Сохраняем в storage только сериализуемые данные
+    const storageData = {
+      activeProvider: settings.activeProvider,
+      gemini: settings.gemini,
+      openai: settings.openai,
+      perplexity: settings.perplexity,
+      models: settings.models,
+      selectedAssistantModel: settings.selectedAssistantModel,
+      selectedAnalysisModel: settings.selectedAnalysisModel,
+    };
+
+    settingsStorage.set('current', storageData);
+
+    // Обновляем визуальное состояние
+    this.updateProviderStatus();
+    this.updateAvailableModels();
+
+    // Создаем провайдеров для разных задач
+    this.initializeProviders();
+  }
+
+  render(parent) {
+    parent.appendChild(this.element);
+    return this;
+  }
+
+  updateProvider(settings) {
+    if (!settings?.provider) {
+      console.error('No provider in settings');
+      return;
     }
+    this.settings = settings;
   }
 
-  initEventHandlers() {
-    // API Key handlers
-    window.showApiKeyForm = () => {
-      document.getElementById('apiKeyForm').style.display = 'flex';
-      document.getElementById('apiKeyInput').focus();
-    };
+  updateAvailableModels() {
+    const assistantSelect = document.getElementById('assistantModelSelect');
+    const analysisSelect = document.getElementById('analysisModelSelect');
+    if (!assistantSelect || !analysisSelect) return;
 
-    window.hideApiKeyForm = () => {
-      document.getElementById('apiKeyForm').style.display = 'none';
-      document.getElementById('apiKeyInput').value = '';
-    };
+    const geminiKey = document.getElementById('geminiKey')?.value;
+    const openaiKey = document.getElementById('openaiKey')?.value;
+    const perplexityKey = document.getElementById('perplexityKey')?.value;
 
-    window.saveApiKey = () => {
-      const apiKey = document.getElementById('apiKeyInput').value.trim();
-      const isCommercial = document.getElementById('isCommercialKey').checked;
+    // Собираем доступные модели
+    const availableModels = [];
+    if (geminiKey) availableModels.push(...this.settings.models.gemini);
+    if (openaiKey) availableModels.push(...this.settings.models.openai);
+    if (perplexityKey) availableModels.push(...this.settings.models.perplexity);
 
-      if (!apiKey) {
-        alert('Please enter API Key');
-        return;
-      }
-
-      try {
-        localStorage.setItem('gemini_api_key', apiKey);
-        localStorage.setItem('is_commercial_key', isCommercial);
-        this.apiKey = apiKey;
-        this.isCommercial = isCommercial;
-        this.updateApiKeyStatus();
-        window.hideApiKeyForm();
-      } catch (e) {
-        alert('Error saving API Key to localStorage');
-        console.error('Storage error:', e);
-      }
-    };
-
-    // Preset handlers
-    window.loadPreset = () => {
-      const presetName = document.getElementById('presetSelect').value;
-      if (!presetName) return;
-
-      const presets = this.loadPresets();
-      const preset = presets[presetName];
-      if (!preset) return;
-
-      document.getElementById('promptTemplate').value = preset.prompt;
-      document.getElementById('outputColumns').value = preset.columns;
-    };
-
-    window.showSavePresetDialog = () => {
-      document.getElementById('savePresetDialog').style.display = 'block';
-      document.getElementById('presetName').focus();
-    };
-
-    window.hideSavePresetDialog = () => {
-      document.getElementById('savePresetDialog').style.display = 'none';
-      document.getElementById('presetName').value = '';
-    };
-
-    window.savePreset = () => {
-      const name = document.getElementById('presetName').value.trim();
-      if (!name) {
-        alert('Please enter preset name');
-        return;
-      }
-
-      const presets = this.loadPresets();
-      presets[name] = {
-        prompt: document.getElementById('promptTemplate').value,
-        columns: document.getElementById('outputColumns').value,
-      };
-
-      try {
-        localStorage.setItem('webmatrix_presets', JSON.stringify(presets));
-        this.updatePresetList();
-        window.hideSavePresetDialog();
-        alert('Preset saved successfully');
-      } catch (e) {
-        alert('Error saving preset');
-        console.error('Storage error:', e);
-      }
-    };
-  }
-
-  updateApiKeyStatus() {
-    const message = document.getElementById('apiKeyMessage');
-    const button = document.getElementById('apiKeyButton');
-
-    if (this.apiKey) {
-      message.textContent = 'API Key is set';
-      message.style.color = '#28a745';
-      button.textContent = 'Change API Key';
-    } else {
-      message.textContent = 'API Key required';
-      message.style.color = '#dc3545';
-      button.textContent = 'Set API Key';
-    }
-  }
-
-  updatePresetList() {
-    const presets = this.loadPresets();
-    const select = document.getElementById('presetSelect');
-    select.innerHTML = '<option value="">Select preset...</option>';
-
-    Object.keys(presets).forEach(name => {
-      const option = document.createElement('option');
-      option.value = name;
-      option.textContent = name;
-      select.appendChild(option);
+    // Обновляем селекты
+    [assistantSelect, analysisSelect].forEach(select => {
+      const currentValue = select.value;
+      select.innerHTML =
+        availableModels.length > 0
+          ? availableModels
+              .map(
+                model => `
+              <option value="${model}" ${model === currentValue ? 'selected' : ''}>
+                ${this.getModelDisplayName(model)}
+              </option>
+            `
+              )
+              .join('')
+          : '<option value="" disabled selected>No API keys configured</option>';
     });
   }
 
-  render(container) {
-    container.appendChild(this.element);
+  updateProviderStatus() {
+    const { activeProvider } = this.settings;
+
+    document.querySelectorAll('.provider-settings').forEach(el => {
+      el.classList.remove('active', 'inactive');
+      const providerId = el.getAttribute('data-provider');
+      if (providerId === activeProvider) {
+        el.classList.add('active');
+      } else {
+        el.classList.add('inactive');
+      }
+    });
   }
 }

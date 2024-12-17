@@ -4,6 +4,7 @@ import './styles/table.css';
 import './styles/components/spoiler.css';
 import './styles/components/readme.css';
 import './styles/components/chat.css';
+import './styles/components/settings.css';
 
 // Import components
 import { Settings } from './components/Settings';
@@ -14,6 +15,12 @@ import Readme from './components/Readme';
 // Import agents
 import { PromptMaster } from './agents/PromptMaster';
 import { Analyst } from './agents/Analyst';
+import { ChatAgent } from './agents/ChatAgent';
+
+// Import storage
+import { settingsStorage } from './utils/storage';
+import { LLMProviderFactory } from './utils/api';
+import { presetsStorage } from './utils/storage';
 
 // Main application class
 class WebMatrix {
@@ -23,187 +30,127 @@ class WebMatrix {
   }
 
   async initialize() {
-    // Initialize components
-    this.settings = new Settings(this.handleSettingsChange.bind(this));
-    this.table = new AnalysisTable();
-    this.chat = new Chat();
-    this.readme = new Readme();
+    try {
+      // Initialize settings first
+      this.settings = new Settings(this.handleSettingsChange.bind(this));
 
-    // Initialize agents
-    this.promptMaster = new PromptMaster();
-    this.analyst = new Analyst(this.table);
+      // Initialize agents with current settings
+      const currentSettings = settingsStorage.get('current');
+      if (
+        currentSettings?.activeProvider &&
+        currentSettings[currentSettings.activeProvider]?.apiKey
+      ) {
+        const providerSettings = currentSettings[currentSettings.activeProvider];
 
-    // Create control buttons
-    this.createControls();
+        // Создаем провайдеров для разных задач
+        const assistantProvider = LLMProviderFactory.createProvider(
+          currentSettings.activeProvider,
+          providerSettings.apiKey,
+          {
+            isCommercial: providerSettings.isCommercial,
+            model: currentSettings.selectedAssistantModel,
+          }
+        );
 
-    // Render components
-    this.readme.render(this.container);
-    this.settings.render(this.container);
-    this.renderControls();
-    this.table.render(this.container);
-    this.chat.render(this.container);
+        const analysisProvider = LLMProviderFactory.createProvider(
+          currentSettings.activeProvider,
+          providerSettings.apiKey,
+          {
+            isCommercial: providerSettings.isCommercial,
+            model: currentSettings.selectedAnalysisModel,
+          }
+        );
 
-    // Add event listeners
-    this.setupEventListeners();
+        // Update settings with providers
+        this.handleSettingsChange({
+          ...currentSettings,
+          assistantProvider,
+          analysisProvider,
+        });
+      }
+
+      // Initialize agents
+      this.promptMaster = new PromptMaster();
+      this.chatAgent = new ChatAgent();
+
+      // Initialize components
+      this.table = new AnalysisTable();
+      this.chat = new Chat();
+      this.readme = new Readme();
+
+      // Initialize analyst after table
+      this.analyst = new Analyst(this.table);
+
+      // Initialize components with their dependencies
+      this.table.promptMaster = this.promptMaster;
+      this.table.analyst = this.analyst;
+      this.chat.initialize(this.chatAgent);
+
+      // Load default preset if available
+      const defaultPreset = presetsStorage.get('default');
+      if (defaultPreset) {
+        this.promptMaster.loadPreset('default');
+      }
+
+      // Render components
+      this.readme.render(this.container);
+      this.settings.render(this.container);
+      this.table.render(this.container);
+      this.chat.render(this.container);
+
+      // Add event listeners
+      this.setupEventListeners();
+    } catch (error) {
+      console.error('Initialization error:', error);
+      alert('Error initializing application: ' + error.message);
+    }
   }
 
   handleSettingsChange(newSettings) {
-    // Обновляем настройки во всех компонентах
-    this.chat.updateProvider(newSettings);
-    this.promptMaster.updateProvider(newSettings);
-    this.analyst.updateProvider(newSettings);
-  }
+    try {
+      if (!newSettings?.assistantProvider || !newSettings?.analysisProvider) {
+        console.error('No providers in settings:', newSettings);
+        return;
+      }
 
-  createControls() {
-    this.controls = document.createElement('div');
-    this.controls.className = 'controls';
+      console.log('Updating providers with settings:', {
+        assistant: {
+          provider: newSettings.assistantProvider.name,
+          model: newSettings.assistantProvider.model,
+        },
+        analysis: {
+          provider: newSettings.analysisProvider.name,
+          model: newSettings.analysisProvider.model,
+        },
+      });
 
-    // File input
-    this.fileInput = document.createElement('input');
-    this.fileInput.type = 'file';
-    this.fileInput.accept = '.xlsx,.csv';
-    this.fileInput.style.display = 'none';
+      // Обновляем провайдеров для ассистентов
+      if (this.chat?.updateProvider) {
+        this.chat.updateProvider({ ...newSettings, provider: newSettings.assistantProvider });
+      }
+      if (this.promptMaster?.updateProvider) {
+        this.promptMaster.updateProvider({
+          ...newSettings,
+          provider: newSettings.assistantProvider,
+        });
+      }
 
-    // Buttons
-    this.loadButton = document.createElement('button');
-    this.loadButton.textContent = 'Load Data';
-    this.loadButton.onclick = () => this.fileInput.click();
-
-    this.promptButton = document.createElement('button');
-    this.promptButton.textContent = 'Generate Prompt';
-    this.promptButton.disabled = true;
-
-    this.analyzeButton = document.createElement('button');
-    this.analyzeButton.textContent = 'Start Analysis';
-    this.analyzeButton.disabled = true;
-
-    this.exportButton = document.createElement('button');
-    this.exportButton.textContent = 'Export Results';
-    this.exportButton.disabled = true;
-
-    this.controls.append(
-      this.fileInput,
-      this.loadButton,
-      this.promptButton,
-      this.analyzeButton,
-      this.exportButton
-    );
-  }
-
-  renderControls() {
-    this.container.appendChild(this.controls);
+      // Обновляем провайдера для анализа
+      if (this.analyst?.updateProvider) {
+        this.analyst.updateProvider({ ...newSettings, provider: newSettings.analysisProvider });
+      }
+    } catch (error) {
+      console.error('Settings update error:', error);
+      alert('Error updating settings: ' + error.message);
+    }
   }
 
   setupEventListeners() {
-    // Обработка загрузки файла
-    this.fileInput.addEventListener('change', async e => {
-      const file = e.target.files[0];
-      if (!file) return;
-
-      try {
-        const data = await this.readFile(file);
-        this.table.loadData(data);
-        this.promptButton.disabled = false;
-        this.analyzeButton.disabled = true;
-        this.exportButton.disabled = true;
-      } catch (error) {
-        alert('Error loading file: ' + error.message);
-      }
-    });
-
-    // Генерация промпта
-    this.promptButton.addEventListener('click', async () => {
-      const userRequest = prompt('What analysis would you like to perform?');
-      if (!userRequest) return;
-
-      try {
-        const result = await this.promptMaster.generatePrompt(userRequest);
-        this.analyst.setPrompt(result.prompt);
-        this.table.setColumns(result.columns);
-        this.analyzeButton.disabled = false;
-
-        // Предложить сохранить пресет
-        if (confirm('Would you like to save this preset?')) {
-          const name = prompt('Enter preset name:');
-          if (name) {
-            this.promptMaster.savePreset(name, userRequest, result.prompt, result.columns);
-          }
-        }
-      } catch (error) {
-        alert('Error generating prompt: ' + error.message);
-      }
-    });
-
-    // Запуск анализа
-    this.analyzeButton.addEventListener('click', async () => {
-      try {
-        this.analyzeButton.disabled = true;
-        await this.analyst.processTable(this.table.data);
-        this.exportButton.disabled = false;
-      } catch (error) {
-        alert('Error during analysis: ' + error.message);
-      } finally {
-        this.analyzeButton.disabled = false;
-      }
-    });
-
-    // Экспорт результатов
-    this.exportButton.addEventListener('click', () => {
-      const format = prompt('Choose format (excel/csv):');
-      if (format === 'excel') {
-        this.table.exportToExcel();
-      } else if (format === 'csv') {
-        this.table.exportToCSV();
-      }
-    });
-  }
-
-  async readFile(file) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = e => {
-        try {
-          const data = [];
-          if (file.name.endsWith('.csv')) {
-            // Parse CSV
-            const text = e.target.result;
-            const rows = text.split('\n');
-            const headers = rows[0].split(',').map(h => h.trim());
-
-            for (let i = 1; i < rows.length; i++) {
-              const values = rows[i].split(',').map(v => v.trim());
-              if (values.length === headers.length) {
-                const row = {};
-                headers.forEach((header, index) => {
-                  row[header] = values[index];
-                });
-                data.push(row);
-              }
-            }
-          } else {
-            // Parse Excel
-            const workbook = XLSX.read(e.target.result, { type: 'binary' });
-            const sheet = workbook.Sheets[workbook.SheetNames[0]];
-            const rows = XLSX.utils.sheet_to_json(sheet);
-            data.push(...rows);
-          }
-          resolve(data);
-        } catch (error) {
-          reject(error);
-        }
-      };
-      reader.onerror = reject;
-
-      if (file.name.endsWith('.csv')) {
-        reader.readAsText(file);
-      } else {
-        reader.readAsBinaryString(file);
-      }
-    });
+    // Добавляем обработчики событий, если нужно
   }
 }
 
-// Initialize application when DOM is loaded
+// Initialize application
 document.addEventListener('DOMContentLoaded', () => {
-  new WebMatrix();
+  window.app = new WebMatrix();
 });

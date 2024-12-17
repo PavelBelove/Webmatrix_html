@@ -34,6 +34,10 @@ export class AnalysisTable {
     this.filters = {};
     this.selectedRows = new Set();
     this.sortDirections = {};
+
+    // Создаем и добавляем панель управления
+    this.controls = this.createControls();
+    this.element.insertBefore(this.controls, this.element.firstChild);
   }
 
   setColumns(columns) {
@@ -613,5 +617,184 @@ export class AnalysisTable {
       row.style.display = '';
     });
     this.updateMasterCheckbox();
+  }
+
+  createControls() {
+    const controls = document.createElement('div');
+    controls.className = 'controls';
+
+    // File input
+    this.fileInput = document.createElement('input');
+    this.fileInput.type = 'file';
+    this.fileInput.accept = '.xlsx,.csv';
+    this.fileInput.style.display = 'none';
+
+    // Добавляем обработчик загрузки файла
+    this.fileInput.addEventListener('change', async e => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      try {
+        const data = await this.readFile(file);
+        this.loadData(data);
+        this.promptButton.disabled = false;
+        this.analyzeButton.disabled = false;
+        this.exportXlsxButton.disabled = false;
+        this.exportCsvButton.disabled = false;
+      } catch (error) {
+        alert('Error loading file: ' + error.message);
+      }
+    });
+
+    // Load Data button
+    const loadButton = document.createElement('button');
+    loadButton.className = 'secondary';
+    loadButton.textContent = 'Load Data';
+    loadButton.setAttribute('data-icon', '📂');
+    loadButton.onclick = () => this.fileInput.click();
+
+    // Generate Prompt button
+    const promptButton = document.createElement('button');
+    promptButton.className = 'secondary';
+    promptButton.textContent = 'Generate Prompt';
+    promptButton.setAttribute('data-icon', '✨');
+    promptButton.disabled = true;
+    promptButton.onclick = async () => {
+      const userRequest = prompt('What analysis would you like to perform?');
+      if (!userRequest) return;
+
+      try {
+        const result = await this.promptMaster.generatePrompt(userRequest);
+        this.analyst.setPrompt(result.prompt);
+        this.setColumns(result.columns);
+        this.analyzeButton.disabled = false;
+
+        if (confirm('Would you like to save this preset?')) {
+          const name = prompt('Enter preset name:');
+          if (name) {
+            this.promptMaster.savePreset(name, userRequest, result.prompt, result.columns);
+          }
+        }
+      } catch (error) {
+        alert('Error generating prompt: ' + error.message);
+      }
+    };
+    this.promptButton = promptButton;
+
+    // Start Analysis button
+    const analyzeButton = document.createElement('button');
+    analyzeButton.className = 'primary';
+    analyzeButton.textContent = 'Start Analysis';
+    analyzeButton.setAttribute('data-icon', '▶️');
+    analyzeButton.disabled = true;
+    analyzeButton.onclick = async () => {
+      try {
+        analyzeButton.disabled = true;
+        await this.analyst.processTable(this.data);
+        this.exportXlsxButton.disabled = false;
+        this.exportCsvButton.disabled = false;
+      } catch (error) {
+        alert('Error during analysis: ' + error.message);
+      } finally {
+        analyzeButton.disabled = false;
+      }
+    };
+    this.analyzeButton = analyzeButton;
+
+    // Refresh Table button
+    const refreshButton = document.createElement('button');
+    refreshButton.className = 'secondary';
+    refreshButton.textContent = 'Refresh Table';
+    refreshButton.setAttribute('data-icon', '🔄');
+    refreshButton.onclick = () => this.refreshTable();
+
+    // Export XLSX button
+    const exportXlsxButton = document.createElement('button');
+    exportXlsxButton.className = 'secondary';
+    exportXlsxButton.textContent = 'Export Excel';
+    exportXlsxButton.setAttribute('data-icon', '📊');
+    exportXlsxButton.disabled = true;
+    exportXlsxButton.onclick = () => this.exportToExcel();
+    this.exportXlsxButton = exportXlsxButton;
+
+    // Export CSV button
+    const exportCsvButton = document.createElement('button');
+    exportCsvButton.className = 'secondary';
+    exportCsvButton.textContent = 'Export CSV';
+    exportCsvButton.setAttribute('data-icon', '📄');
+    exportCsvButton.disabled = true;
+    exportCsvButton.onclick = () => this.exportToCSV();
+    this.exportCsvButton = exportCsvButton;
+
+    controls.append(
+      this.fileInput,
+      loadButton,
+      promptButton,
+      analyzeButton,
+      refreshButton,
+      exportXlsxButton,
+      exportCsvButton
+    );
+    return controls;
+  }
+
+  // Добавим метод для чтения файла
+  async readFile(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = e => {
+        try {
+          const data = [];
+          if (file.name.endsWith('.csv')) {
+            // Parse CSV
+            const text = e.target.result;
+            const rows = text.split('\n');
+            const headers = rows[0].split(',').map(h => h.trim());
+
+            for (let i = 1; i < rows.length; i++) {
+              const values = rows[i].split(',').map(v => v.trim());
+              if (values.length === headers.length) {
+                const row = {};
+                headers.forEach((header, index) => {
+                  row[header] = values[index];
+                });
+                data.push(row);
+              }
+            }
+          } else {
+            // Parse Excel
+            const workbook = XLSX.read(e.target.result, { type: 'binary' });
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            const rows = XLSX.utils.sheet_to_json(sheet);
+            data.push(...rows);
+          }
+          resolve(data);
+        } catch (error) {
+          reject(error);
+        }
+      };
+      reader.onerror = reject;
+
+      if (file.name.endsWith('.csv')) {
+        reader.readAsText(file);
+      } else {
+        reader.readAsBinaryString(file);
+      }
+    });
+  }
+
+  // Обновляем метод refreshTable
+  refreshTable() {
+    const outputColumns = document.getElementById('outputColumns')?.value.trim().split('\n') || [];
+    this.columns = outputColumns.filter(col => col.trim());
+    this.renderHeader();
+    this.renderBody();
+
+    if (this.data.length > 0) {
+      this.promptButton.disabled = false;
+      this.analyzeButton.disabled = false;
+      this.exportXlsxButton.disabled = false;
+      this.exportCsvButton.disabled = false;
+    }
   }
 }

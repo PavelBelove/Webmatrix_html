@@ -1,66 +1,65 @@
 export class Storage {
-  static save(key, data) {
+  constructor(namespace) {
+    if (!namespace) {
+      throw new Error('Storage namespace is required');
+    }
+    this.namespace = namespace;
+  }
+
+  // Основные методы для работы с данными
+  get(key) {
     try {
-      localStorage.setItem(key, JSON.stringify(data));
-      return true;
+      const data = localStorage.getItem(`${this.namespace}:${key}`);
+      return data ? JSON.parse(data) : null;
     } catch (error) {
-      console.error('Error saving to localStorage:', error);
-      return false;
+      console.error(`Error getting ${key} from storage:`, error);
+      return null;
     }
   }
 
-  static load(key, defaultValue = null) {
+  set(key, value) {
     try {
-      const data = localStorage.getItem(key);
-      return data ? JSON.parse(data) : defaultValue;
+      localStorage.setItem(`${this.namespace}:${key}`, JSON.stringify(value));
     } catch (error) {
-      console.error('Error loading from localStorage:', error);
-      return defaultValue;
+      console.error(`Error setting ${key} in storage:`, error);
     }
   }
 
-  static remove(key) {
+  getAll() {
     try {
-      localStorage.removeItem(key);
-      return true;
+      return Object.keys(localStorage)
+        .filter(key => key.startsWith(`${this.namespace}:`))
+        .reduce((acc, key) => {
+          const shortKey = key.replace(`${this.namespace}:`, '');
+          acc[shortKey] = JSON.parse(localStorage.getItem(key));
+          return acc;
+        }, {});
     } catch (error) {
-      console.error('Error removing from localStorage:', error);
-      return false;
+      console.error('Error getting all items from storage:', error);
+      return {};
     }
   }
 
-  // Экспорт в файл
-  static exportToFile(key, filename) {
-    const data = this.load(key);
-    if (!data) return false;
-
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename || `${key}_export.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    return true;
+  remove(key) {
+    try {
+      localStorage.removeItem(`${this.namespace}:${key}`);
+    } catch (error) {
+      console.error(`Error removing ${key} from storage:`, error);
+    }
   }
 
-  // Импорт из файла
-  static importFromFile(key, file) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = e => {
-        try {
-          const data = JSON.parse(e.target.result);
-          this.save(key, data);
-          resolve(data);
-        } catch (error) {
-          reject(error);
-        }
-      };
-      reader.onerror = reject;
-      reader.readAsText(file);
-    });
+  clear() {
+    try {
+      Object.keys(localStorage)
+        .filter(key => key.startsWith(`${this.namespace}:`))
+        .forEach(key => localStorage.removeItem(key));
+    } catch (error) {
+      console.error('Error clearing storage:', error);
+    }
   }
 }
+
+// Создаем экземпляры для разных типов данных
+export const settingsStorage = new Storage('settings');
+export const presetsStorage = new Storage('presets');
+export const chatStorage = new Storage('chat');

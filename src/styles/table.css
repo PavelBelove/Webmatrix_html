@@ -266,61 +266,6 @@
   margin-left: 8px;
 }
 
-/* Стили для кнопок управления */
-.table-controls {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 20px;
-}
-
-.table-button {
-  padding: 8px 16px;
-  border-radius: 4px;
-  border: 1px solid transparent;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  transition: all 0.2s ease;
-}
-
-.table-button.primary {
-  background-color: #e8f5e9;
-  color: #2e7d32;
-  border-color: #c8e6c9;
-}
-
-.table-button.primary:hover {
-  background-color: #c8e6c9;
-}
-
-.table-button.secondary {
-  background-color: #e3f2fd;
-  color: #1565c0;
-  border-color: #bbdefb;
-}
-
-.table-button.secondary:hover {
-  background-color: #bbdefb;
-}
-
-.table-button.warning {
-  background-color: #ffebee;
-  color: #c62828;
-  border-color: #ffcdd2;
-}
-
-.table-button.warning:hover {
-  background-color: #ffcdd2;
-}
-
-.table-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
 /* Стили для скроллбаров */
 .table-scroll::-webkit-scrollbar {
   width: 12px;
@@ -352,4 +297,142 @@
   justify-content: space-between;
   gap: 8px;
   padding: 8px;
+}
+
+/* Стили для кнопок управления */
+.controls {
+  display: flex;
+  gap: 10px;
+  margin: 20px 0;
+  align-items: center;
+}
+
+.controls button,
+.chat-buttons button,
+button.primary,
+button.secondary {
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background-color: #e3f2fd;
+  color: #1565c0;
+  border: 1px solid #bbdefb;
+}
+
+.controls button:hover,
+.chat-buttons button:hover,
+button.primary:hover,
+button.secondary:hover {
+  background-color: #bbdefb;
+}
+
+.controls button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background-color: #f5f5f5;
+  color: #9e9e9e;
+  border-color: #e0e0e0;
+}
+
+/* Специальные стили для кнопок чата */
+.chat-buttons {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+/* Стили для primary кнопок */
+button.primary {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+  border-color: #c8e6c9;
+}
+
+button.primary:hover {
+  background-color: #c8e6c9;
+}
+
+/* Стили для secondary кнопок */
+button.secondary {
+  background-color: #e3f2fd;
+  color: #1565c0;
+  border-color: #bbdefb;
+}
+
+button.secondary:hover {
+  background-color: #bbdefb;
+}
+
+/* Стили для скрытых input[type="file"] */
+input[type='file'] {
+  display: none;
+}
+
+/* Иконки для кнопок */
+button[data-icon]::before {
+  content: attr(data-icon);
+  margin-right: 8px;
+}
+
+/* Анимация при нажатии */
+.controls button:active,
+.chat-buttons button:active,
+button.primary:active,
+button.secondary:active {
+  transform: translateY(1px);
+}
+
+/* Фокус для доступности */
+.controls button:focus,
+.chat-buttons button:focus,
+button.primary:focus,
+button.secondary:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.2);
+}
+
+/* Стили для кнопок загрузки файлов */
+label.button {
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background-color: #e3f2fd;
+  color: #1565c0;
+  border: 1px solid #bbdefb;
+}
+
+label.button:hover {
+  background-color: #bbdefb;
+}
+
+label.button.upload {
+  background-color: #f3e5f5;
+  color: #6a1b9a;
+  border-color: #e1bee7;
+}
+
+label.button.upload:hover {
+  background-color: #e1bee7;
+}
+
+button.download {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+  border-color: #c8e6c9;
+}
+
+button.download:hover {
+  background-color: #c8e6c9;
 }

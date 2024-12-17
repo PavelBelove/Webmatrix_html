@@ -50,9 +50,16 @@
 }
 
 .presets-controls {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: wrap !important;
+  gap: 10px !important;
+  margin: 10px 0 !important;
+}
+
+.presets-controls button {
+  flex: 0 0 auto !important;
+  min-width: 120px !important;
 }
 
 .preset-select {
@@ -159,4 +166,177 @@
 .button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.api-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  padding: 15px;
+}
+
+.api-keys-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 15px;
+}
+
+.settings-controls-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 15px;
+  align-items: end;
+}
+
+.provider-settings {
+  border: 1px solid #ddd;
+  padding: 15px;
+  border-radius: 8px;
+  background: #fff;
+  position: relative;
+}
+
+.provider-settings::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin: 8px;
+}
+
+.provider-settings.active::after {
+  background-color: #4caf50;
+}
+
+.provider-settings.inactive::after {
+  background-color: #9e9e9e;
+}
+
+/* Анимация при сохранении */
+@keyframes save-flash {
+  0% {
+    background-color: #e8f5e9;
+  }
+  50% {
+    background-color: #c8e6c9;
+  }
+  100% {
+    background-color: #fff;
+  }
+}
+
+.save-success {
+  animation: save-flash 0.5s ease-out;
+}
+
+.provider-settings h3 {
+  margin: 0 0 10px 0;
+  color: #333;
+  font-size: 16px;
+}
+
+.key-input-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.provider-settings input[type='text'] {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.checkbox-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.model-selection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.model-selection h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.model-selection select {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: white;
+  cursor: pointer;
+  min-width: 200px;
+}
+
+.model-selection select:disabled {
+  background: #f5f5f5;
+  cursor: not-allowed;
+}
+
+#saveApiSettings {
+  height: 40px; /* Высота как у select */
+  min-width: 120px;
+}
+
+/* Сбросим старые стили */
+.settings-panel {
+  background-color: #f8f9fa;
+  padding: 15px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+/* Новые стили с повышенной специфичностью */
+.settings-panel .api-settings {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 15px !important;
+  padding: 15px !important;
+}
+
+.settings-panel .api-keys-row {
+  display: grid !important;
+  grid-template-columns: repeat(3, 1fr) !important;
+  gap: 15px !important;
+}
+
+.settings-panel .settings-controls-row {
+  display: grid !important;
+  grid-template-columns: 1fr auto !important;
+  gap: 15px !important;
+  align-items: end !important;
+}
+
+/* Остальные стили с повышенной специфичностью */
+.settings-panel .provider-settings {
+  border: 1px solid #ddd !important;
+  padding: 15px !important;
+  border-radius: 8px !important;
+  background: #fff !important;
+  position: relative !important;
+}
+
+.model-selections {
+  display: flex;
+  gap: 20px;
+}
+
+.model-selection {
+  flex: 1;
+}
+
+input[type='password'] {
+  font-family: monospace;
+  letter-spacing: 2px;
 }

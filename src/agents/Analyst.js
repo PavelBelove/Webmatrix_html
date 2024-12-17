@@ -1,101 +1,88 @@
+import { settingsStorage } from '../utils/storage';
 import { LLMProviderFactory } from '../utils/api';
-import { Storage } from '../utils/storage';
 
 export class Analyst {
   constructor(table) {
-    this.settings = Storage.load('webmatrix_settings', {
-      apiKey: '',
-      provider: 'gemini',
-      presets: [],
-      currentPreset: null,
-      outputColumns: [],
-    });
-
-    if (this.settings.apiKey) {
-      this.provider = LLMProviderFactory.createProvider(
-        this.settings.provider,
-        this.settings.apiKey
-      );
-    }
-
     this.table = table;
-    this.currentPrompt = '';
+    this.provider = null;
+    this.prompt = '';
+    this.currentRow = 0;
     this.isProcessing = false;
+  }
+
+  updateProvider(settings) {
+    if (!settings?.provider) {
+      console.error('No provider in settings');
+      return;
+    }
+    this.provider = settings.provider;
   }
 
   setPrompt(prompt) {
-    this.currentPrompt = prompt;
-  }
-
-  async processRow(rowData, rowIndex) {
-    if (!this.currentPrompt) {
-      throw new Error('Prompt is not set');
-    }
-
-    if (!this.provider) {
-      throw new Error('API key not set. Please configure API key in settings.');
-    }
-
-    try {
-      this.table.markRowAsProcessing(rowIndex);
-
-      // Подготавливаем промпт, заменяя плейсхолдеры
-      let processedPrompt = this.currentPrompt;
-      Object.entries(rowData).forEach(([key, value]) => {
-        processedPrompt = processedPrompt.replace(`{{${key}}}`, value);
-      });
-
-      // Получаем ответ от LLM
-      const response = await this.provider.generateResponse(processedPrompt);
-
-      try {
-        // Парсим JSON ответ
-        const result = JSON.parse(response);
-
-        // Обновляем ячейки таблицы
-        Object.entries(result).forEach(([key, value], index) => {
-          this.table.updateCell(rowIndex, index, value);
-        });
-
-        return result;
-      } catch (error) {
-        throw new Error('Failed to parse LLM response as JSON');
-      }
-    } catch (error) {
-      this.table.markRowAsError(rowIndex, error.message);
-      throw error;
-    }
+    this.prompt = prompt;
   }
 
   async processTable(data) {
-    this.isProcessing = true;
-    const results = [];
-
-    for (let i = 0; i < data.length; i++) {
-      try {
-        const result = await this.processRow(data[i], i);
-        results.push(result);
-      } catch (error) {
-        console.error(`Error processing row ${i}:`, error);
-        results.push({ error: error.message });
-      }
+    if (!this.provider) {
+      throw new Error('Provider not initialized. Please configure API settings first.');
     }
 
-    this.isProcessing = false;
-    return results;
+    if (!this.prompt) {
+      throw new Error('Prompt not set. Please generate or load a prompt first.');
+    }
+
+    this.isProcessing = true;
+    this.currentRow = 0;
+
+    try {
+      for (const row of data) {
+        if (!this.isProcessing) break;
+
+        // Подготавливаем промпт для текущей строки
+        const rowPrompt = this.preparePrompt(row);
+
+        try {
+          // Получаем ответ от модели
+          const response = await this.provider.generateResponse(rowPrompt);
+
+          // Парсим JSON ответ
+          const result = JSON.parse(response);
+
+          // Обновляем строку таблицы
+          this.updateTableRow(row, result);
+        } catch (error) {
+          console.error('Error processing row:', error);
+          this.markRowError(row);
+        }
+
+        this.currentRow++;
+        await this.sleep(100); // Небольшая задержка между запросами
+      }
+    } finally {
+      this.isProcessing = false;
+    }
+  }
+
+  preparePrompt(row) {
+    // Заменяем {{value}} на значение из строки
+    return this.prompt.replace(/{{value}}/g, row.value || '');
+  }
+
+  updateTableRow(row, result) {
+    Object.assign(row, result);
+    this.table.renderBody(); // Обновляем отображение таблицы
+  }
+
+  markRowError(row) {
+    row.error = true;
+    this.table.renderBody();
   }
 
   stop() {
     this.isProcessing = false;
   }
 
-  // Обновление провайдера при изменении настроек
-  updateProvider(settings) {
-    this.settings = settings;
-    if (settings.apiKey) {
-      this.provider = LLMProviderFactory.createProvider(settings.provider, settings.apiKey);
-    } else {
-      this.provider = null;
-    }
+  sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
 }
