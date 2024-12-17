@@ -38,6 +38,14 @@ export class AnalysisTable {
     // Создаем и добавляем панель управления
     this.controls = this.createControls();
     this.element.insertBefore(this.controls, this.element.firstChild);
+
+    // Создаем статус-бар
+    this.statusBar = document.createElement('div');
+    this.statusBar.className = 'status-bar';
+    this.statusBar.style.display = 'none';
+
+    // Добавляем статус-бар после контролов, но перед таблицей
+    this.element.insertBefore(this.statusBar, this.tableWrapper);
   }
 
   setColumns(columns) {
@@ -424,7 +432,7 @@ export class AnalysisTable {
         return newDirection === 'asc' ? aNum - bNum : bNum - aNum;
       }
 
-      // Если не числа, сортируем как строки
+      // Если не чи��ла, сортируем как строки
       return newDirection === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
     });
 
@@ -473,8 +481,11 @@ export class AnalysisTable {
   loadData(data) {
     this.data = data;
     if (data.length > 0) {
-      this.renderHeader();
+      // Передаем исходные колонки в промпт мастер сразу при загрузке
+      this.promptMaster.setSourceColumns(Object.keys(data[0]));
     }
+    this.renderHeader();
+    this.renderBody();
   }
 
   updateCell(rowIndex, columnIndex, value, status = 'success') {
@@ -660,23 +671,61 @@ export class AnalysisTable {
     promptButton.setAttribute('data-icon', '✨');
     promptButton.disabled = true;
     promptButton.onclick = async () => {
-      const userRequest = prompt('What analysis would you like to perform?');
-      if (!userRequest) return;
+      if (promptButton.disabled) return;
 
       try {
-        const result = await this.promptMaster.generatePrompt(userRequest);
-        this.analyst.setPrompt(result.prompt);
-        this.setColumns(result.columns);
-        this.analyzeButton.disabled = false;
+        // Получаем текущие значения
+        const currentPrompt = document.getElementById('promptTemplate').value;
+        const currentColumns = document
+          .getElementById('outputColumns')
+          .value.trim()
+          .split('\n')
+          .filter(Boolean);
 
-        if (confirm('Would you like to save this preset?')) {
-          const name = prompt('Enter preset name:');
-          if (name) {
-            this.promptMaster.savePreset(name, userRequest, result.prompt, result.columns);
-          }
+        if (!currentPrompt) {
+          alert('Please enter prompt template first');
+          return;
         }
+
+        if (!this.data || this.data.length === 0) {
+          alert('Please load data first');
+          return;
+        }
+
+        // Блокируем кнопку и показываем статус
+        promptButton.disabled = true;
+        promptButton.classList.add('processing');
+        this.updateStatus('Generating improved prompt...', 'processing');
+
+        // Получаем данные таблицы с заголовками
+        const tableData = {
+          headers: Object.keys(this.data[0]),
+          rows: this.data.slice(0, 3),
+        };
+
+        // Передаем исходные колонки в промпт мастер
+        this.promptMaster.setSourceColumns(tableData.headers);
+
+        // Генерируем улучшенный промпт
+        const result = await this.promptMaster.generatePrompt(
+          currentPrompt,
+          currentColumns,
+          tableData
+        );
+
+        // Обновляем поля
+        document.getElementById('promptTemplate').value = result.prompt;
+        document.getElementById('outputColumns').value = result.columns.join('\n');
+
+        // Показываем успешное завершение
+        this.updateStatus('Prompt generated successfully!', 'success');
+        setTimeout(() => this.clearStatus(), 3000);
       } catch (error) {
-        alert('Error generating prompt: ' + error.message);
+        this.updateStatus(`Error: ${error.message}`, 'error');
+      } finally {
+        // Разблокируем кнопку
+        promptButton.disabled = false;
+        promptButton.classList.remove('processing');
       }
     };
     this.promptButton = promptButton;
@@ -795,6 +844,56 @@ export class AnalysisTable {
       this.analyzeButton.disabled = false;
       this.exportXlsxButton.disabled = false;
       this.exportCsvButton.disabled = false;
+    }
+  }
+
+  // Метод для обновления статус-бара
+  updateStatus(message, type = 'info') {
+    this.statusBar.textContent = message;
+    this.statusBar.className = `status-bar ${type}`;
+    this.statusBar.style.display = 'block';
+  }
+
+  // Метод для скрытия статус-бара
+  clearStatus() {
+    this.statusBar.style.display = 'none';
+  }
+
+  async processTable(data) {
+    const startTime = Date.now();
+    let processedRows = 0;
+    const totalRows = data.length;
+
+    const updateProgress = () => {
+      const elapsed = (Date.now() - startTime) / 1000; // в секундах
+      const avgTimePerRow = elapsed / processedRows;
+      const remainingRows = totalRows - processedRows;
+      const estimatedRemaining = Math.round(avgTimePerRow * remainingRows);
+
+      this.updateStatus(
+        `Processing: ${processedRows}/${totalRows} rows (${Math.round(
+          (processedRows / totalRows) * 100
+        )}%) | ` + `Elapsed: ${Math.round(elapsed)}s | Estimated remaining: ${estimatedRemaining}s`,
+        'processing'
+      );
+    };
+
+    // Обновляем прогресс каждую секунду
+    const progressInterval = setInterval(updateProgress, 1000);
+
+    try {
+      // ... существующий код обработки ...
+      processedRows++;
+      if (processedRows % 10 === 0) updateProgress();
+    } finally {
+      clearInterval(progressInterval);
+      this.updateStatus(
+        `Analysis complete! Processed ${totalRows} rows in ${Math.round(
+          (Date.now() - startTime) / 1000
+        )}s`,
+        'success'
+      );
+      setTimeout(() => this.clearStatus(), 5000);
     }
   }
 }
