@@ -80,32 +80,35 @@
 }
 
 #resultsTable td {
-  padding: 10px 16px;
+  height: 40px;
+  max-height: 40px;
+  padding: 8px 16px;
   border: 1px solid #ddd;
   max-width: 300px;
-}
-
-#resultsTable td.truncate {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   position: relative;
 }
 
-#resultsTable td.truncate:hover::after {
+#resultsTable td:hover {
+  overflow: visible;
+  white-space: normal;
+  z-index: 1;
+}
+
+#resultsTable td:hover::after {
   content: attr(title);
   position: absolute;
   left: 0;
-  top: 100%;
-  z-index: 3;
+  top: 0;
+  width: auto;
+  min-width: 100%;
+  padding: 8px 16px;
   background: white;
-  padding: 8px;
   border: 1px solid #ddd;
-  border-radius: 4px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  white-space: normal;
-  max-width: 400px;
-  word-wrap: break-word;
+  z-index: 2;
 }
 
 .checkbox-column {
@@ -515,4 +518,49 @@ button.processing::after {
   100% {
     content: '...';
   }
+}
+
+/* Стили для секции пресетов */
+.presets-select {
+  width: 100%;
+  padding: 8px;
+  margin-bottom: 10px;
+  border: 1px solid #bbdefb;
+  border-radius: 4px;
+  background-color: white;
+}
+
+.presets-controls {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.preset-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px;
+  border: 1px solid #e3f2fd;
+  border-radius: 4px;
+  margin-bottom: 5px;
+}
+
+.preset-controls {
+  display: flex;
+  gap: 5px;
+}
+
+.preset-controls button {
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+/* Разные стили для исходных данных и результатов */
+.data-cell {
+  background-color: #f8f9fa;
+}
+
+.result-cell {
+  background-color: white;
 }

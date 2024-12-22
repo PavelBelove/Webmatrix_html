@@ -110,7 +110,7 @@ export class Settings {
 
     // API Key секция
     const apiKeyContent = this.createApiKeySection();
-    const apiKeySpoiler = new Spoiler('🔑 API Key', apiKeyContent);
+    const apiKeySpoiler = new Spoiler('🔑 Models Settings', apiKeyContent);
 
     // Presets секция
     const presetsContent = this.createPresetsSection();
@@ -499,6 +499,49 @@ export class Settings {
       } else {
         el.classList.add('inactive');
       }
+    });
+  }
+
+  // Обновление списка пресетов
+  updatePresetsList() {
+    const presets = this.promptMaster.getAllPresets();
+    this.presetsList.innerHTML = '';
+
+    Object.entries(presets).forEach(([name, preset]) => {
+      const presetItem = document.createElement('div');
+      presetItem.className = 'preset-item';
+
+      const presetName = document.createElement('span');
+      presetName.textContent = name;
+      presetItem.appendChild(presetName);
+
+      const presetControls = document.createElement('div');
+      presetControls.className = 'preset-controls';
+
+      // Кнопка загрузки пресета
+      const loadButton = document.createElement('button');
+      loadButton.textContent = 'Load';
+      loadButton.onclick = () => {
+        const preset = this.promptMaster.loadPreset(name);
+        if (preset) {
+          document.getElementById('promptTemplate').value = preset.prompt;
+          document.getElementById('outputColumns').value = preset.columns.join('\n');
+        }
+      };
+
+      // Кнопка удаления пресета
+      const deleteButton = document.createElement('button');
+      deleteButton.textContent = '🗑️';
+      deleteButton.onclick = () => {
+        if (confirm(`Delete preset "${name}"?`)) {
+          this.promptMaster.deletePreset(name);
+          this.updatePresetsList();
+        }
+      };
+
+      presetControls.append(loadButton, deleteButton);
+      presetItem.appendChild(presetControls);
+      this.presetsList.appendChild(presetItem);
     });
   }
 }

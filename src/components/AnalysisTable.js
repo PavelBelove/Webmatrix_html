@@ -46,6 +46,15 @@ export class AnalysisTable {
 
     // Добавляем статус-бар после контролов, но перед таблицей
     this.element.insertBefore(this.statusBar, this.tableWrapper);
+
+    // Биндим методы
+    this.handleMasterCheckbox = this.handleMasterCheckbox.bind(this);
+    this.handleRowCheckbox = this.handleRowCheckbox.bind(this);
+    this.toggleAllRows = this.toggleAllRows.bind(this);
+    this.toggleRow = this.toggleRow.bind(this);
+
+    // Добавляем отдельный объект для разметки
+    this.rowMarks = {}; // {rowIndex: 'true'|'false'|'hidden'}
   }
 
   setColumns(columns) {
@@ -64,11 +73,11 @@ export class AnalysisTable {
     const masterCheckbox = document.createElement('input');
     masterCheckbox.type = 'checkbox';
     masterCheckbox.checked = true;
-    masterCheckbox.addEventListener('change', () => this.toggleAllRows(masterCheckbox.checked));
+    masterCheckbox.addEventListener('change', this.handleMasterCheckbox);
     checkboxTh.appendChild(masterCheckbox);
     tr.appendChild(checkboxTh);
 
-    // Создаем базовые заголовки без фильтров
+    // Создаем базовые заголовки
     const createBasicHeader = column => {
       const th = document.createElement('th');
       th.className = 'header-cell';
@@ -101,14 +110,14 @@ export class AnalysisTable {
     };
 
     // Добавляем исходные колонки
-    const sourceColumns = Object.keys(this.data[0] || {});
-    sourceColumns.forEach(column => {
-      tr.appendChild(createBasicHeader(column));
-    });
+    if (this.data.length > 0) {
+      Object.keys(this.data[0]).forEach(column => {
+        tr.appendChild(createBasicHeader(column));
+      });
+    }
 
     // Добавляем колонки результатов
-    const outputColumns = document.getElementById('outputColumns')?.value.trim().split('\n') || [];
-    outputColumns.forEach(column => {
+    this.columns.forEach(column => {
       if (!column.trim()) return;
       tr.appendChild(createBasicHeader(column));
     });
@@ -311,7 +320,6 @@ export class AnalysisTable {
 
   renderBody() {
     const tbody = document.createElement('tbody');
-    const outputColumns = document.getElementById('outputColumns')?.value.trim().split('\n') || [];
 
     this.data.forEach((row, index) => {
       const tr = document.createElement('tr');
@@ -322,33 +330,36 @@ export class AnalysisTable {
       checkboxTd.className = 'checkbox-column';
       const checkbox = document.createElement('input');
       checkbox.type = 'checkbox';
-      checkbox.checked = true;
-      this.selectedRows.add(index);
-      checkbox.addEventListener('change', () => this.toggleRow(index, checkbox.checked));
+      checkbox.checked = this.rowMarks[index] === 'true';
+      checkbox.onchange = () => this.handleRowCheckbox(index, checkbox.checked);
       checkboxTd.appendChild(checkbox);
       tr.appendChild(checkboxTd);
 
       // Исходные данные
-      Object.values(row).forEach(cell => {
+      Object.values(row).forEach(value => {
         const td = document.createElement('td');
-        td.textContent = this.truncateText(cell);
-        td.title = cell;
-        td.className = 'truncate';
+        td.className = 'data-cell';
+        td.textContent = this.truncateText(value);
+        td.title = value; // Для показа полного текста при наведении
         tr.appendChild(td);
       });
 
-      // Колонки для результатов
-      outputColumns.forEach(column => {
-        if (!column.trim()) return;
+      // Плейсхолдеры для результатов анализа
+      this.columns.forEach(() => {
         const td = document.createElement('td');
-        td.textContent = 'Pending...';
-        td.className = 'result-cell truncate';
+        td.className = 'result-cell';
+        td.textContent = '...';
+        td.style.color = '#999';
         tr.appendChild(td);
       });
 
       tbody.appendChild(tr);
     });
 
+    const existingTbody = this.table.querySelector('tbody');
+    if (existingTbody) {
+      existingTbody.remove();
+    }
     this.table.appendChild(tbody);
   }
 
@@ -366,40 +377,24 @@ export class AnalysisTable {
   }
 
   toggleAllRows(checked) {
-    const visibleRows = Array.from(this.table.querySelectorAll('tbody tr')).filter(
-      row => row.style.display !== 'none'
-    );
+    const selectedCount = Object.values(this.rowMarks).filter(state => state === 'true').length;
+    const totalVisible = Object.values(this.rowMarks).filter(state => state !== 'hidden').length;
 
-    if (visibleRows.length === 0) return;
-
-    // Подсчитываем текущее количество выделенных строк
-    const selectedCount = visibleRows.filter(row =>
-      this.selectedRows.has(Number(row.id.split('-')[1]))
-    ).length;
-
-    // Определяем, нужно ли показывать предупреждение
-    const needWarning =
-      (selectedCount > 0 && selectedCount < visibleRows.length && checked) ||
-      (selectedCount > 0 && selectedCount !== visibleRows.length && !checked);
-
-    if (needWarning) {
-      if (!confirm('This will overwrite your current selection. Continue?')) {
-        // Возвращаем чекбокс в предыдущее состояние
-        const masterCheckbox = this.table.querySelector('thead input[type="checkbox"]');
-        masterCheckbox.checked = !checked;
+    if (!checked && selectedCount > 0 && selectedCount < totalVisible) {
+      if (!confirm('This will clear your current selection. Continue?')) {
         return;
       }
     }
 
-    visibleRows.forEach(row => {
-      const index = Number(row.id.split('-')[1]);
-      const checkbox = row.querySelector('input[type="checkbox"]');
+    const checkboxes = this.table.querySelectorAll('tbody input[type="checkbox"]');
+    checkboxes.forEach((checkbox, index) => {
+      checkbox.checked = checked;
       if (checked) {
         this.selectedRows.add(index);
-        checkbox.checked = true;
+        this.rowMarks[index] = 'true';
       } else {
         this.selectedRows.delete(index);
-        checkbox.checked = false;
+        this.rowMarks[index] = 'false';
       }
     });
   }
@@ -432,14 +427,14 @@ export class AnalysisTable {
         return newDirection === 'asc' ? aNum - bNum : bNum - aNum;
       }
 
-      // Если не чи��ла, сортируем как строки
+      // Если не числа, сортируем как строки
       return newDirection === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
     });
 
     tbody.innerHTML = '';
     rows.forEach(row => tbody.appendChild(row));
 
-    // Обновляем иконку сортировки
+    // Обновляем и��онку сортировки
     const sortIcon = headers[columnIndex].querySelector('.sort-icon');
     if (sortIcon) {
       sortIcon.innerHTML = newDirection === 'asc' ? '↑' : '↓';
@@ -448,27 +443,42 @@ export class AnalysisTable {
 
   applyFilters() {
     const tbody = this.table.querySelector('tbody');
+    if (!tbody) return;
+
     const rows = tbody.querySelectorAll('tr');
+    if (!rows.length) return;
+
+    const thead = this.table.querySelector('thead tr');
+    if (!thead) return;
+
+    const headerCells = Array.from(thead.cells);
 
     rows.forEach(row => {
+      const rowIndex = Number(row.id.split('-')[1]);
       let show = true;
-      Object.entries(this.filters).forEach(([column, allowedValues]) => {
-        const columnIndex = Array.from(this.table.querySelector('thead tr').cells).findIndex(
-          cell => cell.textContent === column
-        );
 
-        const cellText = row.cells[columnIndex].textContent;
-        if (!allowedValues.has(cellText)) {
-          show = false;
+      Object.entries(this.filters).forEach(([column, allowedValues]) => {
+        const columnIndex = headerCells.findIndex(cell => {
+          const span = cell.querySelector('.header-content span');
+          return span?.textContent === column;
+        });
+
+        if (columnIndex !== -1 && row.cells[columnIndex]) {
+          const cellText = row.cells[columnIndex].textContent;
+          if (!allowedValues.has(cellText)) {
+            show = false;
+          }
         }
       });
+
       row.style.display = show ? '' : 'none';
+      this.rowMarks[rowIndex] = show ? this.rowMarks[rowIndex] : 'hidden';
     });
 
-    // Обновляем состояние главного чекбокса после фильтрации
+    // Обновляем мастер-чекбокс
     const visibleRows = Array.from(rows).filter(row => row.style.display !== 'none');
-    const selectedVisibleRows = visibleRows.filter(row =>
-      this.selectedRows.has(Number(row.id.split('-')[1]))
+    const selectedVisibleRows = visibleRows.filter(
+      row => this.rowMarks[Number(row.id.split('-')[1])] === 'true'
     );
 
     const masterCheckbox = this.table.querySelector('thead input[type="checkbox"]');
@@ -480,12 +490,28 @@ export class AnalysisTable {
 
   loadData(data) {
     this.data = data;
+
+    // Инициализируем разметку и выбор - все строки выбраны по умолчанию
+    this.rowMarks = {};
+    this.selectedRows.clear(); // Очищаем старый выбор
+    data.forEach((_, index) => {
+      this.rowMarks[index] = 'true';
+      this.selectedRows.add(index); // Добавляем все строки в выбранные
+    });
+
     if (data.length > 0) {
-      // Передаем исходные колонки в промпт мастер сразу при загрузке
-      this.promptMaster.setSourceColumns(Object.keys(data[0]));
+      this.promptMaster?.setSourceColumns(Object.keys(data[0]));
     }
+
     this.renderHeader();
     this.renderBody();
+
+    if (this.data.length > 0) {
+      this.promptButton.disabled = false;
+      this.analyzeButton.disabled = false;
+      this.exportXlsxButton.disabled = false;
+      this.exportCsvButton.disabled = false;
+    }
   }
 
   updateCell(rowIndex, columnIndex, value, status = 'success') {
@@ -509,15 +535,27 @@ export class AnalysisTable {
 
   markRowAsError(rowIndex, error) {
     const row = this.table.querySelector(`#row-${rowIndex}`);
-    if (row) {
-      row.className = 'error-row';
-      // Добавляем ошибку в последнюю ячейку
-      const cells = row.querySelectorAll('td');
-      const lastCell = cells[cells.length - 1];
-      if (lastCell) {
-        lastCell.textContent = error;
+    if (!row) return;
+
+    // Получаем исходное количество колонок данных
+    const sourceColumnsCount = Object.keys(this.data[0]).length;
+
+    // Получаем ячейки только для результатов
+    const resultCells = Array.from(row.cells).slice(sourceColumnsCount);
+
+    // Заполняем первую ячейку результатов ошибкой
+    if (resultCells[0]) {
+      resultCells[0].textContent = error;
+    }
+
+    // Остальные ячейки результатов помечаем как Err
+    for (let i = 1; i < resultCells.length; i++) {
+      if (resultCells[i]) {
+        resultCells[i].textContent = 'Err';
       }
     }
+
+    row.className = 'error-row';
   }
 
   exportToExcel() {
@@ -640,7 +678,7 @@ export class AnalysisTable {
     this.fileInput.accept = '.xlsx,.csv';
     this.fileInput.style.display = 'none';
 
-    // Добавляем обработчик загрузки файла
+    // Добавляем обработч��к загрузки файла
     this.fileInput.addEventListener('change', async e => {
       const file = e.target.files[0];
       if (!file) return;
@@ -648,10 +686,6 @@ export class AnalysisTable {
       try {
         const data = await this.readFile(file);
         this.loadData(data);
-        this.promptButton.disabled = false;
-        this.analyzeButton.disabled = false;
-        this.exportXlsxButton.disabled = false;
-        this.exportCsvButton.disabled = false;
       } catch (error) {
         alert('Error loading file: ' + error.message);
       }
@@ -733,15 +767,38 @@ export class AnalysisTable {
     // Start Analysis button
     const analyzeButton = document.createElement('button');
     analyzeButton.className = 'primary';
-    analyzeButton.textContent = 'Start Analysis';
-    analyzeButton.setAttribute('data-icon', '▶️');
+    analyzeButton.textContent = 'Analyze';
+    analyzeButton.setAttribute('data-icon', '🔍');
     analyzeButton.disabled = true;
     analyzeButton.onclick = async () => {
       try {
         analyzeButton.disabled = true;
+
+        const promptTemplate = document.getElementById('promptTemplate').value;
+        if (!promptTemplate) {
+          throw new Error('Please enter analysis prompt first');
+        }
+
+        // Сохраняем текущие фильтры и состояния строк
+        const currentFilters = { ...this.filters };
+        const currentMarks = { ...this.rowMarks };
+
+        // Обновляем колонки и делаем рефреш
+        const outputColumns =
+          document.getElementById('outputColumns')?.value.trim().split('\n') || [];
+        this.columns = outputColumns.filter(Boolean);
+
+        // При рефреше восстанавливаем состояния
+        this.refreshTable(() => {
+          this.filters = currentFilters;
+          this.rowMarks = currentMarks;
+          this.applyFilters();
+        });
+
+        this.analyst.setPrompt(promptTemplate);
+        // Передаем разметку в аналитика
+        this.analyst.setRowMarks(this.rowMarks);
         await this.analyst.processTable(this.data);
-        this.exportXlsxButton.disabled = false;
-        this.exportCsvButton.disabled = false;
       } catch (error) {
         alert('Error during analysis: ' + error.message);
       } finally {
@@ -833,18 +890,10 @@ export class AnalysisTable {
   }
 
   // Обновляем метод refreshTable
-  refreshTable() {
-    const outputColumns = document.getElementById('outputColumns')?.value.trim().split('\n') || [];
-    this.columns = outputColumns.filter(col => col.trim());
+  refreshTable(callback) {
     this.renderHeader();
     this.renderBody();
-
-    if (this.data.length > 0) {
-      this.promptButton.disabled = false;
-      this.analyzeButton.disabled = false;
-      this.exportXlsxButton.disabled = false;
-      this.exportCsvButton.disabled = false;
-    }
+    if (callback) callback();
   }
 
   // Метод для обновления статус-бара
@@ -860,40 +909,107 @@ export class AnalysisTable {
   }
 
   async processTable(data) {
-    const startTime = Date.now();
+    // Исправляем this.table.rowMarks на this.rowMarks
+    const rowsToAnalyze = Object.entries(this.rowMarks)
+      .filter(([_, mark]) => mark === 'true')
+      .map(([index]) => Number(index));
+
+    const totalRows = rowsToAnalyze.length;
+    console.log(`Processing ${totalRows} marked rows out of ${data.length} total`);
+
     let processedRows = 0;
-    const totalRows = data.length;
-
-    const updateProgress = () => {
-      const elapsed = (Date.now() - startTime) / 1000; // в секундах
-      const avgTimePerRow = elapsed / processedRows;
-      const remainingRows = totalRows - processedRows;
-      const estimatedRemaining = Math.round(avgTimePerRow * remainingRows);
-
-      this.updateStatus(
-        `Processing: ${processedRows}/${totalRows} rows (${Math.round(
-          (processedRows / totalRows) * 100
-        )}%) | ` + `Elapsed: ${Math.round(elapsed)}s | Estimated remaining: ${estimatedRemaining}s`,
-        'processing'
-      );
-    };
-
-    // Обновляем прогресс каждую секунду
-    const progressInterval = setInterval(updateProgress, 1000);
+    const startTime = Date.now();
 
     try {
-      // ... существующий код обработки ...
-      processedRows++;
-      if (processedRows % 10 === 0) updateProgress();
+      for (const rowIndex of rowsToAnalyze) {
+        if (!this.isProcessing) break;
+
+        await this.processRow(data[rowIndex], rowIndex);
+        processedRows++;
+
+        if (processedRows % 10 === 0) {
+          this.updateProgress(processedRows, totalRows, startTime);
+        }
+      }
+
+      // NA для всех неанализируемых строк
+      data.forEach((_, index) => {
+        if (!rowsToAnalyze.includes(index)) {
+          this.fillRowNA(index);
+        }
+      });
     } finally {
-      clearInterval(progressInterval);
-      this.updateStatus(
-        `Analysis complete! Processed ${totalRows} rows in ${Math.round(
-          (Date.now() - startTime) / 1000
-        )}s`,
-        'success'
-      );
-      setTimeout(() => this.clearStatus(), 5000);
+      this.showFinalStats(totalRows, startTime);
     }
+  }
+
+  // Обновление строки с результатом анализа
+  updateRow(rowIndex, result) {
+    const row = this.table.querySelector(`#row-${rowIndex}`);
+    if (!row) return;
+
+    // Получаем индекс первой колонки для результатов (после чекбокса и исходных данных)
+    const sourceColumnsCount = Object.keys(this.data[0]).length + 1; // +1 для чекбокса
+
+    // Обновляем только ячейки результатов
+    this.columns.forEach((column, index) => {
+      const cell = row.cells[sourceColumnsCount + index];
+      if (cell) {
+        const value = result[column] || '';
+        cell.textContent = this.truncateText(value);
+        cell.title = value; // Для показа полного текста при наведении
+      }
+    });
+
+    row.className = 'success-row';
+  }
+
+  // Методы для работы с чекбоксами
+  handleMasterCheckbox(e) {
+    this.toggleAllRows(e.target.checked);
+  }
+
+  handleRowCheckbox(index, checked) {
+    if (checked) {
+      this.selectedRows.add(index);
+      this.rowMarks[index] = 'true';
+    } else {
+      this.selectedRows.delete(index);
+      this.rowMarks[index] = 'false';
+    }
+  }
+
+  // Добавляем новые методы, не трогая существующие
+  updateFilteredRows(filteredIndexes) {
+    // Сохраняем текущие состояния видимых строк
+    const previousStates = { ...this.rowMarks };
+
+    // Обновляем состояния
+    Object.keys(this.rowMarks).forEach(index => {
+      if (!filteredIndexes.includes(Number(index))) {
+        this.rowMarks[index] = 'hidden';
+      } else {
+        // Восстанавливаем предыдущее состояние или ставим true по умолчанию
+        this.rowMarks[index] = previousStates[index] || 'true';
+      }
+    });
+  }
+
+  // Добавляем метод заполнения NA
+  fillRowNA(rowIndex) {
+    const result = {};
+    this.columns.forEach(column => {
+      result[column] = 'NA';
+    });
+    this.updateRow(rowIndex, result);
+  }
+
+  // Модифицируем метод подготовки данных для экспорта
+  prepareDataForExport() {
+    return this.data.map((row, index) => ({
+      ...row,
+      ...this.getAnalysisResults(index),
+      Selected: this.rowMarks[index] || 'false',
+    }));
   }
 }
