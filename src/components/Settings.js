@@ -1,4 +1,4 @@
-import { settingsStorage } from '../utils/storage';
+import { settingsStorage, presetsStorage } from '../utils/storage';
 import { LLMProviderFactory } from '../utils/api';
 import { Spoiler } from './Spoiler';
 
@@ -375,6 +375,112 @@ export class Settings {
         input.addEventListener('change', () => this.updateAvailableModels());
       }
     });
+
+    const presetsSelect = document.getElementById('presetsSelect');
+    const loadPreset = document.getElementById('loadPreset');
+    const savePreset = document.getElementById('savePreset');
+    const exportPreset = document.getElementById('exportPreset');
+    const importPreset = document.getElementById('importPreset');
+    const importInput = document.getElementById('importPresetInput');
+
+    if (presetsSelect) {
+      // Применить выбранный пресет
+      loadPreset.onclick = () => {
+        const presetName = presetsSelect.value;
+        if (!presetName) {
+          alert('Please select a preset first');
+          return;
+        }
+
+        const preset = presetsStorage.get(presetName);
+        if (preset) {
+          document.getElementById('promptTemplate').value = preset.prompt;
+          document.getElementById('outputColumns').value = preset.columns.join('\n');
+        }
+      };
+
+      // Сохранить текущий как новый пресет
+      savePreset.onclick = () => {
+        const name = prompt('Enter preset name:');
+        if (!name) return;
+
+        const promptTemplate = document.getElementById('promptTemplate').value;
+        const outputColumns = document
+          .getElementById('outputColumns')
+          .value.trim()
+          .split('\n')
+          .filter(Boolean);
+
+        presetsStorage.set(name, {
+          prompt: promptTemplate,
+          columns: outputColumns,
+        });
+
+        // Обновляем список пресетов
+        presetsSelect.innerHTML = `
+          <option value="">Select preset...</option>
+          ${this.getPresetOptions()}
+        `;
+
+        // Выбираем только что созданный пресет
+        presetsSelect.value = name;
+      };
+
+      // Экспорт выбранного пресета
+      exportPreset.onclick = () => {
+        const presetName = presetsSelect.value;
+        if (!presetName) {
+          alert('Please select a preset to export');
+          return;
+        }
+
+        const preset = presetsStorage.get(presetName);
+        const blob = new Blob([JSON.stringify(preset, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `webmatrix_preset_${presetName}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+      };
+
+      // Импорт пресета
+      importPreset.onclick = () => importInput.click();
+      importInput.onchange = async e => {
+        try {
+          const file = e.target.files[0];
+          const text = await file.text();
+          const preset = JSON.parse(text);
+
+          // Проверяем структуру пресета
+          if (!preset.prompt || !preset.columns) {
+            throw new Error('Invalid preset format');
+          }
+
+          // Используем имя файла как имя пресета (без .json)
+          const presetName = file.name.replace('.json', '').replace('webmatrix_preset_', '');
+
+          // Сохраняем пресет
+          presetsStorage.set(presetName, preset);
+
+          // Обновляем список и выбираем импортированный пресет
+          presetsSelect.innerHTML = `
+            <option value="">Select preset...</option>
+            ${this.getPresetOptions()}
+          `;
+          presetsSelect.value = presetName;
+
+          // Сразу применяем импортированный пресет
+          document.getElementById('promptTemplate').value = preset.prompt;
+          document.getElementById('outputColumns').value = preset.columns.join('\n');
+
+          alert('Preset imported and applied successfully');
+        } catch (error) {
+          alert('Error importing preset: ' + error.message);
+        }
+        importInput.value = '';
+      };
+    }
   }
 
   getProviderFromModel(modelId) {
@@ -386,14 +492,47 @@ export class Settings {
 
   createPresetsSection() {
     return `
-      <div class="presets-controls">
-        <button id="loadPreset" class="secondary">📂 Load</button>
-        <button id="savePreset" class="secondary">💾 Save</button>
-        <button id="exportPresets" class="secondary">📤 Export</button>
-        <input type="file" id="importPresets" accept=".json" style="display: none;">
-        <button id="importPresetsBtn" class="secondary">📥 Import</button>
+      <div class="presets-section">
+        <h3>Presets</h3>
+        
+        <!-- Выпадающий список пресетов -->
+        <select id="presetsSelect" class="presets-select">
+          <option value="">Select preset...</option>
+          ${this.getPresetOptions()}
+        </select>
+
+        <div class="presets-controls">
+          <!-- Применить выбранный пресет -->
+          <button id="loadPreset" class="secondary" data-icon="📂">
+            Load Preset
+          </button>
+
+          <!-- Сохранить текущий как новый пресет -->
+          <button id="savePreset" class="primary" data-icon="💾">
+            Save Preset
+          </button>
+
+          <!-- Экспорт выбранного пресета -->
+          <button id="exportPreset" class="primary" data-icon="📤">
+            Export Preset
+          </button>
+
+          <!-- Импорт пресета -->
+          <button id="importPreset" class="secondary" data-icon="📥">
+            Import Preset
+          </button>
+          <input type="file" id="importPresetInput" accept=".json" style="display: none;">
+        </div>
       </div>
     `;
+  }
+
+  // Получаем опции для выпадающего списка
+  getPresetOptions() {
+    const presets = presetsStorage.getAll();
+    return Object.keys(presets)
+      .map(name => `<option value="${name}">${name}</option>`)
+      .join('');
   }
 
   createPromptSection() {
@@ -499,49 +638,6 @@ export class Settings {
       } else {
         el.classList.add('inactive');
       }
-    });
-  }
-
-  // Обновление списка пресетов
-  updatePresetsList() {
-    const presets = this.promptMaster.getAllPresets();
-    this.presetsList.innerHTML = '';
-
-    Object.entries(presets).forEach(([name, preset]) => {
-      const presetItem = document.createElement('div');
-      presetItem.className = 'preset-item';
-
-      const presetName = document.createElement('span');
-      presetName.textContent = name;
-      presetItem.appendChild(presetName);
-
-      const presetControls = document.createElement('div');
-      presetControls.className = 'preset-controls';
-
-      // Кнопка загрузки пресета
-      const loadButton = document.createElement('button');
-      loadButton.textContent = 'Load';
-      loadButton.onclick = () => {
-        const preset = this.promptMaster.loadPreset(name);
-        if (preset) {
-          document.getElementById('promptTemplate').value = preset.prompt;
-          document.getElementById('outputColumns').value = preset.columns.join('\n');
-        }
-      };
-
-      // Кнопка удаления пресета
-      const deleteButton = document.createElement('button');
-      deleteButton.textContent = '🗑️';
-      deleteButton.onclick = () => {
-        if (confirm(`Delete preset "${name}"?`)) {
-          this.promptMaster.deletePreset(name);
-          this.updatePresetsList();
-        }
-      };
-
-      presetControls.append(loadButton, deleteButton);
-      presetItem.appendChild(presetControls);
-      this.presetsList.appendChild(presetItem);
     });
   }
 }
