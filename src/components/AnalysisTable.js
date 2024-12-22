@@ -434,7 +434,7 @@ export class AnalysisTable {
     tbody.innerHTML = '';
     rows.forEach(row => tbody.appendChild(row));
 
-    // Обновляем и��онку сортировки
+    // Обновляем иконку сортировки
     const sortIcon = headers[columnIndex].querySelector('.sort-icon');
     if (sortIcon) {
       sortIcon.innerHTML = newDirection === 'asc' ? '↑' : '↓';
@@ -678,7 +678,7 @@ export class AnalysisTable {
     this.fileInput.accept = '.xlsx,.csv';
     this.fileInput.style.display = 'none';
 
-    // Добавляем обработч��к загрузки файла
+    // Добавляем обработчик загрузки файла
     this.fileInput.addEventListener('change', async e => {
       const file = e.target.files[0];
       if (!file) return;
@@ -948,16 +948,20 @@ export class AnalysisTable {
     const row = this.table.querySelector(`#row-${rowIndex}`);
     if (!row) return;
 
-    // Получаем индекс первой колонки для результатов (после чекбокса и исходных данных)
-    const sourceColumnsCount = Object.keys(this.data[0]).length + 1; // +1 для чекбокса
+    const sourceColumnsCount = Object.keys(this.data[0]).length + 1;
 
-    // Обновляем только ячейки результатов
     this.columns.forEach((column, index) => {
       const cell = row.cells[sourceColumnsCount + index];
       if (cell) {
         const value = result[column] || '';
-        cell.textContent = this.truncateText(value);
-        cell.title = value; // Для показа полного текста при наведении
+        cell.textContent = value;
+
+        // Проверяем, обрезан ли текст
+        if (cell.scrollWidth > cell.clientWidth) {
+          cell.title = value;
+        } else {
+          cell.removeAttribute('title');
+        }
       }
     });
 
