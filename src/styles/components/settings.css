@@ -177,7 +177,7 @@
 
 .api-keys-row {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 15px;
 }
 
@@ -307,7 +307,7 @@
 
 .settings-panel .api-keys-row {
   display: grid !important;
-  grid-template-columns: repeat(3, 1fr) !important;
+  grid-template-columns: repeat(2, 1fr) !important;
   gap: 15px !important;
 }
 
@@ -339,4 +339,21 @@
 input[type='password'] {
   font-family: monospace;
   letter-spacing: 2px;
+}
+
+/* Анимация для успешного сохранения */
+.save-success {
+  animation: saveSuccess 0.5s ease-in-out;
+}
+
+@keyframes saveSuccess {
+  0% {
+    background-color: transparent;
+  }
+  50% {
+    background-color: rgba(76, 175, 80, 0.1);
+  }
+  100% {
+    background-color: transparent;
+  }
 }

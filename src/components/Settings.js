@@ -18,13 +18,15 @@ export class Settings {
       openai: {
         apiKey: '',
       },
-      perplexity: {
-        apiKey: '',
-      },
       models: {
-        gemini: ['gemini-1.5-pro'],
+        gemini: [
+          'gemini-1.5-pro',
+          'gemini-2.0-flash-exp',
+          'gemini-2.0-thinking-exp-1219',
+          'learnlm-1.5-pro-experimental',
+          'gemini-exp-1206',
+        ],
         openai: ['gpt-4o', 'gpt-4o-mini'],
-        perplexity: ['pplx-7b', 'pplx-70b'],
       },
       selectedAssistantModel: 'gemini-1.5-pro',
       selectedAnalysisModel: 'gemini-1.5-pro',
@@ -144,7 +146,29 @@ export class Settings {
   }
 
   createApiKeySection() {
-    const { gemini, openai, perplexity } = this.settings;
+    const { gemini, openai } = this.settings;
+
+    // Получаем только доступные модели (с установленными ключами)
+    const availableModels = [
+      ...(gemini.apiKey ? this.settings.models.gemini : []),
+      ...(openai.apiKey ? this.settings.models.openai : []),
+    ];
+
+    // Если нет моделей, показываем сообщение
+    const modelOptions =
+      availableModels.length > 0
+        ? availableModels
+            .map(
+              model => `
+          <option value="${model}" ${
+                model === this.settings.selectedAssistantModel ? 'selected' : ''
+              }>
+            ${this.getModelDisplayName(model)}
+          </option>
+        `
+            )
+            .join('')
+        : '<option value="" disabled selected>No API keys configured</option>';
 
     return `
       <div class="api-settings">
@@ -185,21 +209,6 @@ export class Settings {
                    data-has-key="${!!openai.apiKey}"
             />
           </div>
-
-          <!-- Perplexity Settings -->
-          <div class="provider-settings ${
-            this.settings.activeProvider === 'perplexity' ? 'active' : ''
-          }" data-provider="perplexity">
-            <h3>Perplexity</h3>
-            <input type="text" 
-                   id="perplexityKey" 
-                   placeholder="${
-                     perplexity.apiKey ? 'API key is set' : 'Enter Perplexity API key'
-                   }"
-                   value=""
-                   data-has-key="${!!perplexity.apiKey}"
-            />
-          </div>
         </div>
 
         <div class="settings-controls-row">
@@ -208,34 +217,14 @@ export class Settings {
             <div class="model-selection">
               <h3>Assistant Model</h3>
               <select id="assistantModelSelect">
-                ${this.getAvailableModels()
-                  .map(
-                    model => `
-                  <option value="${model}" ${
-                      model === this.settings.selectedAssistantModel ? 'selected' : ''
-                    }>
-                    ${this.getModelDisplayName(model)}
-                  </option>
-                `
-                  )
-                  .join('')}
+                ${modelOptions}
               </select>
             </div>
 
             <div class="model-selection">
               <h3>Analysis Model</h3>
               <select id="analysisModelSelect">
-                ${this.getAvailableModels()
-                  .map(
-                    model => `
-                  <option value="${model}" ${
-                      model === this.settings.selectedAnalysisModel ? 'selected' : ''
-                    }>
-                    ${this.getModelDisplayName(model)}
-                  </option>
-                `
-                  )
-                  .join('')}
+                ${modelOptions}
               </select>
             </div>
           </div>
@@ -246,30 +235,15 @@ export class Settings {
     `;
   }
 
-  getAvailableModels() {
-    const models = [];
-    const { gemini, openai, perplexity } = this.settings;
-
-    if (gemini.apiKey) {
-      models.push(...this.settings.models.gemini);
-    }
-    if (openai.apiKey) {
-      models.push(...this.settings.models.openai);
-    }
-    if (perplexity.apiKey) {
-      models.push(...this.settings.models.perplexity);
-    }
-
-    return models;
-  }
-
   getModelDisplayName(modelId) {
     const displayNames = {
-      'gemini-1.5-pro': 'Gemini 1.5 Pro',
       'gpt-4o': 'GPT-4 Optimized',
       'gpt-4o-mini': 'GPT-4 Optimized Mini',
-      'pplx-7b': 'Perplexity 7B',
-      'pplx-70b': 'Perplexity 70B',
+      'gemini-1.5-pro': 'Gemini 1.5 Pro',
+      'gemini-2.0-flash-exp': 'Gemini 2.0 Flash',
+      'gemini-2.0-thinking-exp-1219': 'Gemini 2.0 Thinking',
+      'learnlm-1.5-pro-experimental': 'LearnLM 1.5 Pro',
+      'gemini-exp-1206': 'Gemini Experimental',
     };
     return displayNames[modelId] || modelId;
   }
@@ -283,7 +257,6 @@ export class Settings {
         // Получаем значения
         const geminiInput = document.getElementById('geminiKey');
         const openaiInput = document.getElementById('openaiKey');
-        const perplexityInput = document.getElementById('perplexityKey');
 
         // Если в поле что-то введено - используем это значение
         // Если поле пустое, но есть сохраненный ключ - используем его
@@ -293,9 +266,6 @@ export class Settings {
         const openaiKey =
           openaiInput.value.trim() ||
           (openaiInput.dataset.hasKey === 'true' ? this.settings.openai.apiKey : '');
-        const perplexityKey =
-          perplexityInput.value.trim() ||
-          (perplexityInput.dataset.hasKey === 'true' ? this.settings.perplexity.apiKey : '');
 
         const isCommercial = document.getElementById('geminiCommercial')?.checked;
         const selectedAssistantModel = document.getElementById('assistantModelSelect')?.value;
@@ -313,9 +283,6 @@ export class Settings {
           },
           openai: {
             apiKey: openaiKey,
-          },
-          perplexity: {
-            apiKey: perplexityKey,
           },
           selectedAssistantModel,
           selectedAnalysisModel,
@@ -340,12 +307,10 @@ export class Settings {
         // Очищаем поля ввода
         geminiInput.value = '';
         openaiInput.value = '';
-        perplexityInput.value = '';
 
         // Обновляем data-has-key
         geminiInput.dataset.hasKey = !!newSettings.gemini.apiKey;
         openaiInput.dataset.hasKey = !!newSettings.openai.apiKey;
-        perplexityInput.dataset.hasKey = !!newSettings.perplexity.apiKey;
 
         // Обновляем плейсхолдеры
         geminiInput.placeholder = newSettings.gemini.apiKey
@@ -354,9 +319,6 @@ export class Settings {
         openaiInput.placeholder = newSettings.openai.apiKey
           ? 'API key is set'
           : 'Enter OpenAI API key';
-        perplexityInput.placeholder = newSettings.perplexity.apiKey
-          ? 'API key is set'
-          : 'Enter Perplexity API key';
 
         // Показываем уведомление об успехе
         const apiSettings = document.querySelector('.api-settings');
@@ -369,12 +331,25 @@ export class Settings {
     });
 
     // Обработчики изменения ключей
-    ['geminiKey', 'openaiKey', 'perplexityKey'].forEach(id => {
+    ['geminiKey', 'openaiKey'].forEach(id => {
       const input = document.getElementById(id);
       if (input) {
         input.addEventListener('change', () => this.updateAvailableModels());
       }
     });
+
+    // Обработчик изменения модели для показа/скрытия настроек поиска
+    const modelSelect = document.getElementById('assistantModelSelect');
+    if (modelSelect) {
+      modelSelect.addEventListener('change', e => {
+        const searchSettings = document.querySelector('.search-settings');
+        if (searchSettings) {
+          const model = e.target.value;
+          const needsSearch = model.includes('thinking') || model.includes('flash');
+          searchSettings.classList.toggle('hidden', !needsSearch);
+        }
+      });
+    }
 
     const presetsSelect = document.getElementById('presetsSelect');
     const loadPreset = document.getElementById('loadPreset');
@@ -486,7 +461,7 @@ export class Settings {
   getProviderFromModel(modelId) {
     if (modelId.startsWith('gemini')) return 'gemini';
     if (modelId.startsWith('gpt')) return 'openai';
-    if (modelId.startsWith('pplx')) return 'perplexity';
+    if (modelId.startsWith('llama-')) return 'perplexity';
     return 'gemini'; // default
   }
 
@@ -504,22 +479,22 @@ export class Settings {
         <div class="presets-controls">
           <!-- Применить выбранный пресет -->
           <button id="loadPreset" class="secondary" data-icon="📂">
-            Load Preset
+            Load
           </button>
 
           <!-- Сохранить текущий как новый пресет -->
           <button id="savePreset" class="primary" data-icon="💾">
-            Save Preset
+            Save
           </button>
 
           <!-- Экспорт выбранного пресета -->
           <button id="exportPreset" class="primary" data-icon="📤">
-            Export Preset
+            Export
           </button>
 
           <!-- Импорт пресета -->
           <button id="importPreset" class="secondary" data-icon="📥">
-            Import Preset
+            Import
           </button>
           <input type="file" id="importPresetInput" accept=".json" style="display: none;">
         </div>
@@ -555,7 +530,9 @@ export class Settings {
       analysisProvider: settings.analysisProvider?.name,
       gemini: { ...settings.gemini, apiKey: '***' },
       openai: { ...settings.openai, apiKey: '***' },
-      perplexity: { ...settings.perplexity, apiKey: '***' },
+      models: settings.models,
+      selectedAssistantModel: settings.selectedAssistantModel,
+      selectedAnalysisModel: settings.selectedAnalysisModel,
     });
 
     this.settings = settings;
@@ -565,7 +542,6 @@ export class Settings {
       activeProvider: settings.activeProvider,
       gemini: settings.gemini,
       openai: settings.openai,
-      perplexity: settings.perplexity,
       models: settings.models,
       selectedAssistantModel: settings.selectedAssistantModel,
       selectedAnalysisModel: settings.selectedAnalysisModel,
@@ -599,25 +575,52 @@ export class Settings {
     const analysisSelect = document.getElementById('analysisModelSelect');
     if (!assistantSelect || !analysisSelect) return;
 
-    const geminiKey = document.getElementById('geminiKey')?.value;
-    const openaiKey = document.getElementById('openaiKey')?.value;
-    const perplexityKey = document.getElementById('perplexityKey')?.value;
+    // Берем ключи из сохраненных настроек
+    const { gemini, openai } = this.settings;
 
-    // Собираем доступные модели
-    const availableModels = [];
-    if (geminiKey) availableModels.push(...this.settings.models.gemini);
-    if (openaiKey) availableModels.push(...this.settings.models.openai);
-    if (perplexityKey) availableModels.push(...this.settings.models.perplexity);
+    // Обновляем список доступных моделей в настройках
+    this.settings.models = {
+      gemini: gemini.apiKey
+        ? [
+            'gemini-1.5-pro',
+            'gemini-2.0-flash-exp',
+            'gemini-2.0-thinking-exp-1219',
+            'learnlm-1.5-pro-experimental',
+            'gemini-exp-1206',
+          ]
+        : [],
+      openai: openai.apiKey ? ['gpt-4o', 'gpt-4o-mini'] : [],
+    };
+
+    // Собираем все доступные модели
+    const availableModels = [...this.settings.models.gemini, ...this.settings.models.openai];
 
     // Обновляем селекты
     [assistantSelect, analysisSelect].forEach(select => {
       const currentValue = select.value;
+
+      // Если текущая модель недоступна, выбираем первую из доступных
+      if (!availableModels.includes(currentValue) && availableModels.length > 0) {
+        if (select === assistantSelect) {
+          this.settings.selectedAssistantModel = availableModels[0];
+        } else {
+          this.settings.selectedAnalysisModel = availableModels[0];
+        }
+      }
+
       select.innerHTML =
         availableModels.length > 0
           ? availableModels
               .map(
                 model => `
-              <option value="${model}" ${model === currentValue ? 'selected' : ''}>
+              <option value="${model}" ${
+                  model ===
+                  (select === assistantSelect
+                    ? this.settings.selectedAssistantModel
+                    : this.settings.selectedAnalysisModel)
+                    ? 'selected'
+                    : ''
+                }>
                 ${this.getModelDisplayName(model)}
               </option>
             `
@@ -625,6 +628,9 @@ export class Settings {
               .join('')
           : '<option value="" disabled selected>No API keys configured</option>';
     });
+
+    // Сохраняем обновленные настройки
+    settingsStorage.set('current', this.settings);
   }
 
   updateProviderStatus() {
