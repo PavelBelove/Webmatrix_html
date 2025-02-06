@@ -1,47 +1,61 @@
-const HtmlWebpackPlugin = require('html-webpack-plugin');
-const MiniCssExtractPlugin = require('mini-css-extract-plugin');
+const HtmlBundlerPlugin = require('html-bundler-webpack-plugin');
 const path = require('path');
+const TerserPlugin = require('terser-webpack-plugin');
+const CssMinimizerPlugin = require('css-minimizer-webpack-plugin');
 
 module.exports = {
-  entry: './src/index.js',
+  entry: {
+    index: './src/index.html',
+  },
   output: {
     path: path.resolve(__dirname, '../dist'),
-    filename: 'webmatrix.js',
     clean: true,
-  },
-  externals: {
-    marked: 'marked',
-    xlsx: 'XLSX',
   },
   module: {
     rules: [
       {
+        test: /\.js$/,
+        exclude: /node_modules/,
+        use: 'babel-loader',
+      },
+      {
         test: /\.css$/,
-        use: [
-          MiniCssExtractPlugin.loader,
-          {
-            loader: 'css-loader',
-            options: {
-              importLoaders: 1,
-            },
-          },
-          'postcss-loader',
-        ],
+        use: ['css-loader'],
       },
     ],
   },
   plugins: [
-    new HtmlWebpackPlugin({
-      template: './src/index.html',
+    new HtmlBundlerPlugin({
+      js: {
+        inline: true,
+      },
+      css: {
+        inline: true,
+      },
       minify: {
-        collapseWhitespace: true,
-        removeComments: true,
-        minifyCSS: true,
-        minifyJS: true,
+        html: true,
+        css: true,
+        js: true,
       },
     }),
-    new MiniCssExtractPlugin({
-      filename: '[name].[contenthash].css',
-    }),
   ],
+  optimization: {
+    minimize: true,
+    minimizer: [
+      new TerserPlugin({
+        terserOptions: {
+          format: {
+            comments: false,
+          },
+          compress: {
+            drop_console: false,
+          },
+        },
+        extractComments: false,
+      }),
+      new CssMinimizerPlugin(),
+    ],
+    splitChunks: false,
+    runtimeChunk: false,
+  },
 };

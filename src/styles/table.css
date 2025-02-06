@@ -565,6 +565,19 @@ button.processing::after {
 /* Разные стили для исходных данных и результатов */
 .data-cell {
   background-color: #f8f9fa;
+  max-width: 300px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  position: relative;
+}
+
+.data-cell:hover {
+  white-space: normal;
+  overflow: visible;
+  z-index: 1;
+  background: white;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 .result-cell {

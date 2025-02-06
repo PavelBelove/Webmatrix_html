@@ -8,14 +8,17 @@ export class Settings {
     this.element = document.createElement('div');
     this.element.className = 'settings-panel';
 
-    // Загружаем сохраненные настройки
-    this.settings = settingsStorage.get('current') || {
+    // Дефолтные настройки
+    const defaultSettings = {
       activeProvider: 'gemini',
       gemini: {
         apiKey: '',
         isCommercial: false,
       },
       openai: {
+        apiKey: '',
+      },
+      deepseek: {
         apiKey: '',
       },
       models: {
@@ -27,10 +30,26 @@ export class Settings {
           'gemini-exp-1206',
         ],
         openai: ['gpt-4o', 'gpt-4o-mini'],
+        deepseek: ['deepseek-chat', 'deepseek-coder'],
       },
       selectedAssistantModel: 'gemini-1.5-pro',
       selectedAnalysisModel: 'gemini-1.5-pro',
     };
+
+    // Загружаем сохраненные настройки и объединяем с дефолтными
+    const savedSettings = settingsStorage.get('current');
+    console.log('Saved settings:', savedSettings);
+    
+    this.settings = savedSettings ? { ...defaultSettings, ...savedSettings } : defaultSettings;
+    console.log('Initialized settings:', this.settings);
+
+    // Проверяем, что все необходимые поля существуют
+    if (!this.settings.gemini) this.settings.gemini = defaultSettings.gemini;
+    if (!this.settings.openai) this.settings.openai = defaultSettings.openai;
+    if (!this.settings.deepseek) this.settings.deepseek = defaultSettings.deepseek;
+    if (!this.settings.models) this.settings.models = defaultSettings.models;
+
+    console.log('Settings after validation:', this.settings);
 
     // Инициализируем провайдера если есть ключ
     this.initializeProviders();
@@ -39,7 +58,16 @@ export class Settings {
 
   initializeProviders() {
     const { activeProvider } = this.settings;
+    if (!activeProvider) {
+      console.log('No active provider set');
+      return;
+    }
+
     const providerSettings = this.settings[activeProvider];
+    if (!providerSettings) {
+      console.log('No settings found for provider:', activeProvider);
+      return;
+    }
 
     console.log('Initializing providers:', {
       activeProvider,
@@ -50,6 +78,12 @@ export class Settings {
 
     if (providerSettings?.apiKey) {
       try {
+        // Проверяем наличие выбранных моделей
+        if (!this.settings.selectedAssistantModel || !this.settings.selectedAnalysisModel) {
+          console.error('No models selected');
+          return;
+        }
+
         // Создаем провайдера для ассистентов
         const assistantProvider = LLMProviderFactory.createProvider(
           this.getProviderFromModel(this.settings.selectedAssistantModel),
@@ -57,6 +91,7 @@ export class Settings {
           {
             isCommercial: providerSettings.isCommercial,
             model: this.settings.selectedAssistantModel,
+            useWebSearch: true,
           }
         );
 
@@ -67,6 +102,7 @@ export class Settings {
           {
             isCommercial: providerSettings.isCommercial,
             model: this.settings.selectedAnalysisModel,
+            useWebSearch: true,
           }
         );
 
@@ -146,12 +182,13 @@ export class Settings {
   }
 
   createApiKeySection() {
-    const { gemini, openai } = this.settings;
+    const { gemini, openai, deepseek } = this.settings;
 
     // Получаем только доступные модели (с установленными ключами)
     const availableModels = [
       ...(gemini.apiKey ? this.settings.models.gemini : []),
       ...(openai.apiKey ? this.settings.models.openai : []),
+      ...(deepseek.apiKey ? this.settings.models.deepseek : []),
     ];
 
     // Если нет моделей, показываем сообщение
@@ -202,12 +239,47 @@ export class Settings {
             this.settings.activeProvider === 'openai' ? 'active' : ''
           }" data-provider="openai">
             <h3>OpenAI</h3>
-            <input type="text" 
-                   id="openaiKey" 
-                   placeholder="${openai.apiKey ? 'API key is set' : 'Enter OpenAI API key'}"
-                   value=""
-                   data-has-key="${!!openai.apiKey}"
-            />
+            <div class="input-group">
+              <div class="key-input-wrapper">
+                <input type="text" 
+                       id="openaiKey" 
+                       placeholder="${openai.apiKey ? 'API key is set' : 'Enter OpenAI API key'}"
+                       value=""
+                       data-has-key="${!!openai.apiKey}"
+                />
+                <div class="checkbox-wrapper">
+                  <input type="checkbox" 
+                         id="openaiCommercial" 
+                         disabled
+                  />
+                  <label for="openaiCommercial">Commercial Key</label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Deepseek Settings -->
+          <div class="provider-settings ${
+            this.settings.activeProvider === 'deepseek' ? 'active' : ''
+          }" data-provider="deepseek">
+            <h3>Deepseek</h3>
+            <div class="input-group">
+              <div class="key-input-wrapper">
+                <input type="text" 
+                       id="deepseekKey" 
+                       placeholder="${deepseek.apiKey ? 'API key is set' : 'Enter Deepseek API key'}"
+                       value=""
+                       data-has-key="${!!deepseek.apiKey}"
+                />
+                <div class="checkbox-wrapper">
+                  <input type="checkbox" 
+                         id="deepseekCommercial" 
+                         disabled
+                  />
+                  <label for="deepseekCommercial">Commercial Key</label>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -244,6 +316,8 @@ export class Settings {
       'gemini-2.0-thinking-exp-1219': 'Gemini 2.0 Thinking',
       'learnlm-1.5-pro-experimental': 'LearnLM 1.5 Pro',
       'gemini-exp-1206': 'Gemini Experimental',
+      'deepseek-chat': 'Deepseek Chat',
+      'deepseek-coder': 'Deepseek Coder',
     };
     return displayNames[modelId] || modelId;
   }
@@ -257,6 +331,7 @@ export class Settings {
         // Получаем значения
         const geminiInput = document.getElementById('geminiKey');
         const openaiInput = document.getElementById('openaiKey');
+        const deepseekInput = document.getElementById('deepseekKey');
 
         // Если в поле что-то введено - используем это значение
         // Если поле пустое, но есть сохраненный ключ - используем его
@@ -266,6 +341,9 @@ export class Settings {
         const openaiKey =
           openaiInput.value.trim() ||
           (openaiInput.dataset.hasKey === 'true' ? this.settings.openai.apiKey : '');
+        const deepseekKey =
+          deepseekInput.value.trim() ||
+          (deepseekInput.dataset.hasKey === 'true' ? this.settings.deepseek.apiKey : '');
 
         const isCommercial = document.getElementById('geminiCommercial')?.checked;
         const selectedAssistantModel = document.getElementById('assistantModelSelect')?.value;
@@ -283,6 +361,9 @@ export class Settings {
           },
           openai: {
             apiKey: openaiKey,
+          },
+          deepseek: {
+            apiKey: deepseekKey,
           },
           selectedAssistantModel,
           selectedAnalysisModel,
@@ -307,10 +388,12 @@ export class Settings {
         // Очищаем поля ввода
         geminiInput.value = '';
         openaiInput.value = '';
+        deepseekInput.value = '';
 
         // Обновляем data-has-key
         geminiInput.dataset.hasKey = !!newSettings.gemini.apiKey;
         openaiInput.dataset.hasKey = !!newSettings.openai.apiKey;
+        deepseekInput.dataset.hasKey = !!newSettings.deepseek.apiKey;
 
         // Обновляем плейсхолдеры
         geminiInput.placeholder = newSettings.gemini.apiKey
@@ -319,6 +402,9 @@ export class Settings {
         openaiInput.placeholder = newSettings.openai.apiKey
           ? 'API key is set'
           : 'Enter OpenAI API key';
+        deepseekInput.placeholder = newSettings.deepseek.apiKey
+          ? 'API key is set'
+          : 'Enter Deepseek API key';
 
         // Показываем уведомление об успехе
         const apiSettings = document.querySelector('.api-settings');
@@ -331,7 +417,7 @@ export class Settings {
     });
 
     // Обработчики изменения ключей
-    ['geminiKey', 'openaiKey'].forEach(id => {
+    ['geminiKey', 'openaiKey', 'deepseekKey'].forEach(id => {
       const input = document.getElementById(id);
       if (input) {
         input.addEventListener('change', () => this.updateAvailableModels());
@@ -462,6 +548,7 @@ export class Settings {
     if (modelId.startsWith('gemini')) return 'gemini';
     if (modelId.startsWith('gpt')) return 'openai';
     if (modelId.startsWith('llama-')) return 'perplexity';
+    if (modelId.startsWith('deepseek')) return 'deepseek';
     return 'gemini'; // default
   }
 
@@ -530,6 +617,7 @@ export class Settings {
       analysisProvider: settings.analysisProvider?.name,
       gemini: { ...settings.gemini, apiKey: '***' },
       openai: { ...settings.openai, apiKey: '***' },
+      deepseek: { ...settings.deepseek, apiKey: '***' },
       models: settings.models,
       selectedAssistantModel: settings.selectedAssistantModel,
       selectedAnalysisModel: settings.selectedAnalysisModel,
@@ -542,6 +630,7 @@ export class Settings {
       activeProvider: settings.activeProvider,
       gemini: settings.gemini,
       openai: settings.openai,
+      deepseek: settings.deepseek,
       models: settings.models,
       selectedAssistantModel: settings.selectedAssistantModel,
       selectedAnalysisModel: settings.selectedAnalysisModel,
@@ -576,7 +665,7 @@ export class Settings {
     if (!assistantSelect || !analysisSelect) return;
 
     // Берем ключи из сохраненных настроек
-    const { gemini, openai } = this.settings;
+    const { gemini, openai, deepseek } = this.settings;
 
     // Обновляем список доступных моделей в настройках
     this.settings.models = {
@@ -590,10 +679,15 @@ export class Settings {
           ]
         : [],
       openai: openai.apiKey ? ['gpt-4o', 'gpt-4o-mini'] : [],
+      deepseek: deepseek.apiKey ? ['deepseek-chat', 'deepseek-coder'] : [],
     };
 
     // Собираем все доступные модели
-    const availableModels = [...this.settings.models.gemini, ...this.settings.models.openai];
+    const availableModels = [
+      ...this.settings.models.gemini,
+      ...this.settings.models.openai,
+      ...this.settings.models.deepseek,
+    ];
 
     // Обновляем селекты
     [assistantSelect, analysisSelect].forEach(select => {

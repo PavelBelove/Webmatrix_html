@@ -6,16 +6,20 @@ export class OpenAIProvider {
     this.baseUrl = 'https://api.openai.com/v1';
   }
 
+  getRequestHeaders() {
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + this.apiKey
+    };
+  }
+
   async generateResponse(prompt) {
     try {
       const response = await fetch(`${this.baseUrl}/chat/completions`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${this.apiKey}`,
-        },
+        headers: this.getRequestHeaders(),
         body: JSON.stringify({
-          model: this.model,
+          model: this.mapModelToApi(this.model),
           messages: [
             { role: 'system', content: 'You are a helpful AI assistant.' },
             { role: 'user', content: prompt },
@@ -65,12 +69,9 @@ export class OpenAIProvider {
 
       const response = await fetch(`${this.baseUrl}/chat/completions`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${this.apiKey}`,
-        },
+        headers: this.getRequestHeaders(),
         body: JSON.stringify({
-          model: this.model,
+          model: this.mapModelToApi(this.model),
           messages,
           temperature: 0.9,
           max_tokens: 4000,
@@ -96,9 +97,7 @@ export class OpenAIProvider {
   async validateApiKey() {
     try {
       const response = await fetch(`${this.baseUrl}/models`, {
-        headers: {
-          Authorization: `Bearer ${this.apiKey}`,
-        },
+        headers: this.getRequestHeaders(),
       });
 
       if (!response.ok) {
@@ -109,8 +108,7 @@ export class OpenAIProvider {
       const availableModels = data.data.map(model => model.id);
       const ourModels = Object.keys(this.getModelInfo());
       const hasRequiredModels = ourModels.some(
-        model =>
-          availableModels.includes(model) || availableModels.includes(this.mapModelToApi(model))
+        model => availableModels.includes(this.mapModelToApi(model))
       );
 
       if (!hasRequiredModels) {
@@ -131,10 +129,9 @@ export class OpenAIProvider {
     if (!validModels.includes(model)) {
       throw new Error('Unsupported model');
     }
-    this.model = this.mapModelToApi(model);
+    this.model = model;
   }
 
-  // Маппинг наших идентификаторов моделей в реальные идентификаторы API
   mapModelToApi(model) {
     const mapping = {
       'gpt-4o': 'gpt-4-0125-preview',
@@ -148,14 +145,12 @@ export class OpenAIProvider {
       'gpt-4o': {
         name: 'GPT-4 Optimized',
         maxTokens: 128000,
-        description: 'Latest GPT-4 Turbo with 128k context',
-        apiModel: 'gpt-4-0125-preview',
+        description: 'Latest GPT-4 with 128k context',
       },
       'gpt-4o-mini': {
         name: 'GPT-4 Optimized Mini',
         maxTokens: 128000,
         description: 'Smaller, faster version of GPT-4 Optimized',
-        apiModel: 'gpt-4-0125-preview',
       },
     };
   }

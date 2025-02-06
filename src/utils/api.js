@@ -1,16 +1,19 @@
 import { OpenAIProvider } from './providers/OpenAIProvider';
 import { GeminiProvider } from './providers/GeminiProvider';
 import { PerplexityProvider } from './providers/PerplexityProvider';
+import { DeepseekProvider } from './providers/DeepseekProvider';
 
 export class LLMProviderFactory {
   static createProvider(type, apiKey, options = {}) {
     switch (type) {
-      case 'openai':
-        return new OpenAIProvider(apiKey, options);
       case 'gemini':
         return new GeminiProvider(apiKey, options);
+      case 'openai':
+        return new OpenAIProvider(apiKey, options);
       case 'perplexity':
         return new PerplexityProvider(apiKey, options);
+      case 'deepseek':
+        return new DeepseekProvider(apiKey, options);
       default:
         throw new Error(`Unknown provider type: ${type}`);
     }

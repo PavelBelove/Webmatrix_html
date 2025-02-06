@@ -339,7 +339,7 @@ export class AnalysisTable {
       Object.values(row).forEach(value => {
         const td = document.createElement('td');
         td.className = 'data-cell';
-        td.textContent = this.truncateText(value);
+        td.textContent = value; // Используем полный текст
         td.title = value; // Для показа полного текста при наведении
         tr.appendChild(td);
       });
@@ -361,11 +361,6 @@ export class AnalysisTable {
       existingTbody.remove();
     }
     this.table.appendChild(tbody);
-  }
-
-  truncateText(text, maxLength = 100) {
-    if (typeof text !== 'string') return text;
-    return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
   }
 
   toggleRow(index, checked) {
@@ -541,11 +536,19 @@ export class AnalysisTable {
     const sourceColumnsCount = Object.keys(this.data[0]).length;
 
     // Получаем ячейки только для результатов
-    const resultCells = Array.from(row.cells).slice(sourceColumnsCount);
+    const resultCells = Array.from(row.cells).slice(sourceColumnsCount + 1);
 
-    // Заполняем первую ячейку результатов ошибкой
+    // Получаем URL из данных строки
+    const rowData = this.data[rowIndex];
+    const url = rowData['Link to the course'] || '';
+
+    // Формируем сообщение об ошибке с полным URL
+    const errorMessage = error.message.replace('[URL from Link to the course column]', url);
+
+    // Заполняем первую ячейку результатов полным сообщением об ошибке
     if (resultCells[0]) {
-      resultCells[0].textContent = error;
+      resultCells[0].textContent = errorMessage;
+      resultCells[0].title = errorMessage; // Добавляем тултип для длинных сообщений
     }
 
     // Остальные ячейки результатов помечаем как Err
@@ -909,37 +912,34 @@ export class AnalysisTable {
   }
 
   async processTable(data) {
-    // Исправляем this.table.rowMarks на this.rowMarks
-    const rowsToAnalyze = Object.entries(this.rowMarks)
-      .filter(([_, mark]) => mark === 'true')
-      .map(([index]) => Number(index));
+    const prompt = document.getElementById('promptTemplate').value;
+    const selectedRows = this.getSelectedRows();
 
-    const totalRows = rowsToAnalyze.length;
-    console.log(`Processing ${totalRows} marked rows out of ${data.length} total`);
-
-    let processedRows = 0;
-    const startTime = Date.now();
-
-    try {
-      for (const rowIndex of rowsToAnalyze) {
-        if (!this.isProcessing) break;
-
-        await this.processRow(data[rowIndex], rowIndex);
-        processedRows++;
-
-        if (processedRows % 10 === 0) {
-          this.updateProgress(processedRows, totalRows, startTime);
+    for (let rowIndex of selectedRows) {
+      try {
+        this.markRowAsProcessing(rowIndex);
+        const row = this.data[rowIndex];
+        
+        // Собираем данные из ячеек, используя оригинальные значения
+        const rowData = {};
+        const cells = this.table.rows[rowIndex + 1].cells;
+        for (let i = 1; i < cells.length - this.columns.length; i++) {
+          const cell = cells[i];
+          rowData[`col${i}`] = cell.dataset.originalValue || cell.textContent;
         }
+
+        // Заменяем плейсхолдеры в промпте
+        let filledPrompt = prompt;
+        Object.entries(rowData).forEach(([key, value]) => {
+          filledPrompt = filledPrompt.replace(new RegExp(`{{${key}}}`, 'g'), value);
+        });
+
+        const result = await this.analysisProvider.generateResponse(filledPrompt);
+        this.updateRow(rowIndex, result);
+      } catch (error) {
+        console.error(`Error processing row ${rowIndex}:`, error);
+        this.markRowAsError(rowIndex, error.message);
       }
-
-      // NA для всех неанализируемых строк
-      data.forEach((_, index) => {
-        if (!rowsToAnalyze.includes(index)) {
-          this.fillRowNA(index);
-        }
-      });
-    } finally {
-      this.showFinalStats(totalRows, startTime);
     }
   }
 
@@ -1015,5 +1015,31 @@ export class AnalysisTable {
       ...this.getAnalysisResults(index),
       Selected: this.rowMarks[index] || 'false',
     }));
+  }
+
+  async processRow(row, index) {
+    try {
+      this.markRowAsProcessing(index);
+      
+      // Собираем данные из ячеек, используя полные значения
+      const rowData = {};
+      const cells = this.table.rows[index + 1].cells;
+      for (let i = 1; i < cells.length - this.columns.length; i++) {
+        const cell = cells[i];
+        rowData[`col${i}`] = cell.textContent; // Используем полный текст
+      }
+
+      // Заменяем плейсхолдеры в промпте
+      let filledPrompt = document.getElementById('promptTemplate').value;
+      Object.entries(rowData).forEach(([key, value]) => {
+        filledPrompt = filledPrompt.replace(new RegExp(`{{${key}}}`, 'g'), value);
+      });
+
+      const result = await this.analysisProvider.generateResponse(filledPrompt);
+      this.updateRow(index, result);
+    } catch (error) {
+      console.error(`Error processing row ${index}:`, error);
+      this.markRowAsError(index, error);
+    }
   }
 }
