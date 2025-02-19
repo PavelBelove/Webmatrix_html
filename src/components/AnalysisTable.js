@@ -801,7 +801,7 @@ export class AnalysisTable {
         this.analyst.setPrompt(promptTemplate);
         // Передаем разметку в аналитика
         this.analyst.setRowMarks(this.rowMarks);
-        await this.analyst.processTable(this.data);
+        await this.startAnalysis();
       } catch (error) {
         alert('Error during analysis: ' + error.message);
       } finally {
@@ -911,61 +911,45 @@ export class AnalysisTable {
     this.statusBar.style.display = 'none';
   }
 
-  async processTable(data) {
-    const prompt = document.getElementById('promptTemplate').value;
-    const selectedRows = this.getSelectedRows();
+  async startAnalysis() {
+    try {
+      // Сохраняем текущий промпт
+      this.promptMaster.saveCurrentPrompt(
+        document.getElementById('promptTemplate').value,
+        document.getElementById('outputColumns').value.split('\n')
+      );
 
-    for (let rowIndex of selectedRows) {
-      try {
-        this.markRowAsProcessing(rowIndex);
-        const row = this.data[rowIndex];
+      // Запускаем анализ
+      const results = [];
+      for (const row of this.data) {
+        // После 3-х строк проверяем результаты
+        if (results.length === 3) {
+          if (this.promptMaster.checkInitialResults(results)) {
+            // Останавливаем анализ и пробуем регенерировать промпт
+            const newPrompt = await this.promptMaster.regeneratePromptAfterError(
+              document.getElementById('promptTemplate').value,
+              document.getElementById('outputColumns').value.split('\n'),
+              { headers: Object.keys(this.data[0]), rows: this.data.slice(0, 3) }
+            );
+            
+            // Обновляем промпт и перезапускаем анализ
+            document.getElementById('promptTemplate').value = newPrompt.prompt;
+            return this.startAnalysis(); // Рекурсивный перезапуск
+          }
+        }
         
-        // Собираем данные из ячеек, используя оригинальные значения
-        const rowData = {};
-        const cells = this.table.rows[rowIndex + 1].cells;
-        for (let i = 1; i < cells.length - this.columns.length; i++) {
-          const cell = cells[i];
-          rowData[`col${i}`] = cell.dataset.originalValue || cell.textContent;
-        }
-
-        // Заменяем плейсхолдеры в промпте
-        let filledPrompt = prompt;
-        Object.entries(rowData).forEach(([key, value]) => {
-          filledPrompt = filledPrompt.replace(new RegExp(`{{${key}}}`, 'g'), value);
-        });
-
-        const result = await this.analysisProvider.generateResponse(filledPrompt);
-        this.updateRow(rowIndex, result);
-      } catch (error) {
-        console.error(`Error processing row ${rowIndex}:`, error);
-        this.markRowAsError(rowIndex, error.message);
+        // Продолжаем анализ
+        const result = await this.analyzeRow(row);
+        results.push(result);
       }
+
+      return results;
+    } catch (error) {
+      if (error.message.includes('3 попыток')) {
+        alert(error.message);
+      }
+      throw error;
     }
-  }
-
-  // Обновление строки с результатом анализа
-  updateRow(rowIndex, result) {
-    const row = this.table.querySelector(`#row-${rowIndex}`);
-    if (!row) return;
-
-    const sourceColumnsCount = Object.keys(this.data[0]).length + 1;
-
-    this.columns.forEach((column, index) => {
-      const cell = row.cells[sourceColumnsCount + index];
-      if (cell) {
-        const value = result[column] || '';
-        cell.textContent = value;
-
-        // Проверяем, обрезан ли текст
-        if (cell.scrollWidth > cell.clientWidth) {
-          cell.title = value;
-        } else {
-          cell.removeAttribute('title');
-        }
-      }
-    });
-
-    row.className = 'success-row';
   }
 
   // Методы для работы с чекбоксами

@@ -5,6 +5,24 @@
   margin-top: 20px;
   height: calc(100vh - 300px);
   min-height: 400px;
+  resize: vertical;
+  overflow: auto;
+  padding-bottom: 10px; /* Чтобы было за что тянуть */
+  position: relative;
+}
+
+.table-container::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 15px;
+  height: 15px;
+  cursor: ns-resize;
+  background: 
+    linear-gradient(45deg, transparent 0%, transparent 40%, 
+    #ccc 40%, #ccc 60%, transparent 60%, transparent 100%);
+  border-radius: 0 0 4px 0;
 }
 
 .table-wrapper {
@@ -14,6 +32,7 @@
   border: 1px solid #ddd;
   border-radius: 8px;
   background: white;
+  min-height: 200px; /* Минимальная высота при сжатии */
 }
 
 .table-scroll {

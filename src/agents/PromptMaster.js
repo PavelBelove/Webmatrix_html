@@ -265,6 +265,8 @@ export class PromptMaster {
     this.currentPreset = null;
     this.provider = null;
     this.sourceColumns = [];
+    this.maxRetries = 3;
+    this.retryCount = 0;
   }
 
   updateProvider(settings) {
@@ -279,6 +281,62 @@ export class PromptMaster {
   // Сохраняем исходные колонки при загрузке данных
   setSourceColumns(columns) {
     this.sourceColumns = columns;
+  }
+
+  // Сохраняем промпт перед анализом
+  saveCurrentPrompt(prompt, columns) {
+    localStorage.setItem('lastPrompt', JSON.stringify({
+      userPrompt: prompt,
+      columns: columns,
+      timestamp: Date.now()
+    }));
+  }
+
+  // Проверяем результаты первых строк
+  checkInitialResults(results) {
+    if (!results || results.length < 3) return false;
+    
+    return results.slice(0, 3).some(result => 
+      result.error || 
+      Object.values(result).some(value => 
+        typeof value === 'string' && value.toLowerCase().includes('error')
+      )
+    );
+  }
+
+  async regeneratePromptAfterError(currentPrompt, columns, tableData) {
+    this.retryCount++;
+    if (this.retryCount > this.maxRetries) {
+      throw new Error('Не удалось сгенерировать работающий промпт после 3 попыток. Проверьте корректность исходных данных.');
+    }
+
+    // Достаем сохраненный промпт пользователя
+    const saved = JSON.parse(localStorage.getItem('lastPrompt'));
+    if (!saved) {
+      throw new Error('Не найден исходный промпт пользователя');
+    }
+
+    // Формируем расширенный контекст для регенерации
+    const errorContext = `ВАЖНО: Предыдущий промпт не работает корректно!
+
+ИСХОДНЫЙ ЗАПРОС ПОЛЬЗОВАТЕЛЯ:
+${saved.userPrompt}
+
+ПРОБЛЕМНЫЙ ПРОМПТ (требует исправления):
+${currentPrompt}
+
+ИНСТРУКЦИИ ПО ИСПРАВЛЕНИЮ:
+1. Внимательно изучи проблемный промпт
+2. Найди причины некорректной работы
+3. Сохрани существующие выходные колонки без изменений
+4. Улучши инструкции и валидацию
+5. Убедись, что формат JSON строго соответствует требованиям
+
+СУЩЕСТВУЮЩИЕ ВЫХОДНЫЕ КОЛОНКИ (не менять):
+${columns.join('\n')}`;
+
+    // Генерируем новый промпт
+    return this.generatePrompt(errorContext, columns, tableData);
   }
 
   async generatePrompt(currentPrompt, currentColumns, tableData) {
@@ -298,17 +356,17 @@ Sample data (first 3 rows):
 ${tableData.rows.map(row => JSON.stringify(row, null, 2)).join('\n')}`;
 
     // Формируем текущий шаблон
-    const currentTemplate = `Current prompt template:
+    const currentTemplate = currentPrompt.includes('ПРОБЛЕМНЫЙ ПРОМПТ') 
+      ? currentPrompt // Если это регенерация, используем расширенный контекст как есть
+      : `Current prompt template:
 ${currentPrompt}
 
 Current output columns:
 ${currentColumns.join('\n')}`;
 
     // Подставляем данные в метапромпт
-    const fullPrompt = META_PROMPT.replace('{{TABLE_CONTEXT}}', tableContext).replace(
-      '{{USER_TASK}}',
-      currentTemplate
-    );
+    const fullPrompt = META_PROMPT.replace('{{TABLE_CONTEXT}}', tableContext)
+      .replace('{{USER_TASK}}', currentTemplate);
 
     try {
       const response = await this.provider.generateResponse(fullPrompt);
@@ -327,6 +385,9 @@ ${currentColumns.join('\n')}`;
         .split('\n')
         .map(col => col.trim());
 
+      // Сбрасываем счетчик попыток при успехе
+      this.retryCount = 0;
+      
       return {
         prompt,
         columns,
