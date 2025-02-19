@@ -36,3 +36,13 @@ coverage/
 
 # Build stats
 stats.json
+
+*.csv
+*.xlsx
+*.xls
+*.docx
+*.pptx
+*.pdf
+*.txt
+*.md
+*.json
