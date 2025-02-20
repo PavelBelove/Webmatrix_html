@@ -74,7 +74,7 @@ class WebMatrix {
       this.chatAgent = new ChatAgent();
 
       // Initialize components
-      this.table = new AnalysisTable();
+      this.table = new AnalysisTable(currentSettings);
       this.chat = new Chat();
       this.readme = new Readme();
 
@@ -138,6 +138,11 @@ class WebMatrix {
       // Обновляем провайдера для анализа
       if (this.analyst?.updateProvider) {
         this.analyst.updateProvider({ ...newSettings, provider: newSettings.analysisProvider });
+      }
+
+      // Обновляем настройки таблицы
+      if (this.table?.updateSettings) {
+        this.table.updateSettings(newSettings);
       }
     } catch (error) {
       console.error('Settings update error:', error);

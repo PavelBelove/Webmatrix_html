@@ -14,6 +14,22 @@ Other columns (optionally) will be filled with "Pending..." - these columns are 
 The prompt must contain questions for the model corresponding to each response column, and require answers in json format, without additional text (the response is processed by the program)
 Give detailed, comprehensive instructions for the model, with examples and explanations of how to handle non-standard situations.
 
+CRITICALLY IMPORTANT ADDITION:
+The model MUST ALWAYS respond in JSON format, even in error cases or when data is missing/invalid.
+If the model wants to indicate an error or ask for clarification:
+1. It should still use the required JSON structure
+2. Put its message in the first field of the JSON
+3. Fill other fields with "Err"
+4. Never respond with plain text
+5. Never break the JSON format
+
+Example error response:
+{
+  "field1": "Error: Cannot proceed without website URL. Please provide URL for analysis.",
+  "field2": "Err",
+  "field3": "Err"
+}
+
 Available data context:
 {{TABLE_CONTEXT}}
 
@@ -104,36 +120,39 @@ Here's an example of a complete, properly formatted response:
 PROMPT:
 You are an experienced financial analyst evaluating companies for potential fintech service sales. Your task is to analyze the company's website and determine if they could benefit from international payment solutions.
 
-NALYSIS INSTRUCTIONS:
+ANALYSIS INSTRUCTIONS:
 1. Website Access:
-    - Try opening site {{website}} without http/https/www
-    - Make one retry attempt if failed
-    - Return error response if site remains inaccessible
+   - Try opening site {{website}} without http/https/www
+   - Make one retry attempt if failed
+   - Return error response if site remains inaccessible
+   - ALWAYS respond in JSON format, even when reporting errors
+   - Never break JSON structure or respond with plain text
+   - Put error messages in first JSON field, fill others with "Err"
 
 2. Company Analysis:
-    - Determine exact name and business type
-    - Assess operation scale and geographic presence
-    - Analyze current financial services and international activities
-    - Find evidence of cross-border operations
-
+   - Determine exact name and business type
+   - Assess operation scale and geographic presence
+   - Analyze current financial services and international activities
+   - Find evidence of cross-border operations
+   
 3. Potential Assessment:
-    - Rate international presence (0-10)
-    - Rate technical readiness (0-10)
-    - Rate target profile match (0-10)
-
+   - Rate international presence (0-10)
+   - Rate technical readiness (0-10)
+   - Rate target profile match (0-10)
+   
 4. Evidence Collection:
-    - Check About/Services sections
-    - Look for international operations mentions
-    - Find international office locations
-    - Document specific countries/regions
-    - Save URLs with evidence
+   - Check About/Services sections
+   - Look for international operations mentions
+   - Find international office locations
+   - Document specific countries/regions
+   - Save URLs with evidence
 
 5. Data Validation:
-    - Use only publicly available information
-    - Make no assumptions without evidence
-    - Note any uncertainty in assessments
-    - Indicate data sources
-    - Document any access issues
+   - Use only publicly available information
+   - Make no assumptions without evidence
+   - Note any uncertainty in assessments
+   - Indicate data sources
+   - Document any access issues
 
 RESPONSE FORMAT:
 Return strictly JSON format without additional text:
@@ -153,7 +172,7 @@ Return strictly JSON format without additional text:
 
 RESPONSE EXAMPLES:
 
-Successful analysis:
+1. Successful analysis:
 {
     "company_name": "Global Trade Solutions",
     "has_international_offices": true,
@@ -167,7 +186,7 @@ Successful analysis:
     "proof_url": "globaltrade.com/about"
 }
 
-Limited data:
+2. Limited data:
 {
     "company_name": "Local Shop",
     "has_international_offices": false,
@@ -181,19 +200,40 @@ Limited data:
     "proof_url": "localshop.com"
 }
 
-Error:
+3. Error - Site Inaccessible:
 {
-    "company_name": "N/A",
-    "has_international_offices": false,
-    "has_currency_exchange": false,
-    "has_money_transfer": false,
-    "sales_potential": 0,
-    "estimated_yearly_fx_volume": "N/A",
-    "locations": "N/A",
-    "company_summary": "Site inaccessible",
-    "lead_quality_notes": "Error: [exact problem description]",
-    "proof_url": "N/A"
+    "company_name": "Error: Site inaccessible - please check URL",
+    "has_international_offices": "Err",
+    "has_currency_exchange": "Err",
+    "has_money_transfer": "Err",
+    "sales_potential": "Err",
+    "estimated_yearly_fx_volume": "Err",
+    "locations": "Err",
+    "company_summary": "Err",
+    "lead_quality_notes": "Error: Could not access website after retry",
+    "proof_url": "Err"
 }
+
+4. Error - Missing Required Data:
+{
+    "company_name": "Error: Website URL not provided",
+    "has_international_offices": "Err",
+    "has_currency_exchange": "Err",
+    "has_money_transfer": "Err",
+    "sales_potential": "Err",
+    "estimated_yearly_fx_volume": "Err",
+    "locations": "Err",
+    "company_summary": "Err",
+    "lead_quality_notes": "Error: Cannot proceed without website URL",
+    "proof_url": "Err"
+}
+
+IMPORTANT NOTES:
+1. ALWAYS return JSON format, even for errors
+2. Never respond with plain text
+3. Put error messages in first field (company_name)
+4. Fill other fields with "Err" in error cases
+5. Keep JSON structure intact in all cases
 ===PROMPT_END===
 ===COLUMNS_START===
 company_name

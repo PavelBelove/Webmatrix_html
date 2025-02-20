@@ -1,7 +1,8 @@
 import { Storage } from '../utils/storage';
 
 export class AnalysisTable {
-  constructor() {
+  constructor(settings) {
+    this.settings = settings;
     this.element = document.createElement('div');
     this.element.className = 'table-container';
 
@@ -913,34 +914,48 @@ export class AnalysisTable {
 
   async startAnalysis() {
     try {
+      if (!this.settings?.analysisProvider) {
+        throw new Error('Analysis provider not configured. Please check your settings.');
+      }
+
       // Сохраняем текущий промпт
       this.promptMaster.saveCurrentPrompt(
         document.getElementById('promptTemplate').value,
         document.getElementById('outputColumns').value.split('\n')
       );
 
-      // Запускаем анализ
+      // Запускаем анализ только для выбранных строк
       const results = [];
-      for (const row of this.data) {
-        // После 3-х строк проверяем результаты
-        if (results.length === 3) {
-          if (this.promptMaster.checkInitialResults(results)) {
-            // Останавливаем анализ и пробуем регенерировать промпт
-            const newPrompt = await this.promptMaster.regeneratePromptAfterError(
-              document.getElementById('promptTemplate').value,
-              document.getElementById('outputColumns').value.split('\n'),
-              { headers: Object.keys(this.data[0]), rows: this.data.slice(0, 3) }
-            );
-            
-            // Обновляем промпт и перезапускаем анализ
-            document.getElementById('promptTemplate').value = newPrompt.prompt;
-            return this.startAnalysis(); // Рекурсивный перезапуск
+      let shouldContinue = true;
+
+      for (let i = 0; i < this.data.length; i++) {
+        if (!shouldContinue || this.rowMarks[i] !== 'true') continue;
+
+        try {
+          const result = await this.analyzeRow(this.data[i], i);
+          results.push(result);
+
+          // После 3-х строк проверяем результаты
+          if (results.length === 3) {
+            if (this.promptMaster.checkInitialResults(results)) {
+              // Останавливаем анализ и пробуем регенерировать промпт
+              const newPrompt = await this.promptMaster.regeneratePromptAfterError(
+                document.getElementById('promptTemplate').value,
+                document.getElementById('outputColumns').value.split('\n'),
+                { headers: Object.keys(this.data[0]), rows: this.data.slice(0, 3) }
+              );
+              
+              // Обновляем промпт и перезапускаем анализ
+              document.getElementById('promptTemplate').value = newPrompt.prompt;
+              shouldContinue = false; // Останавливаем текущий цикл
+              return this.startAnalysis(); // Рекурсивный перезапуск
+            }
           }
+        } catch (error) {
+          console.error(`Error analyzing row ${i}:`, error);
+          this.markRowAsError(i, error);
+          results.push({ error: error.message });
         }
-        
-        // Продолжаем анализ
-        const result = await this.analyzeRow(row);
-        results.push(result);
       }
 
       return results;
@@ -949,6 +964,76 @@ export class AnalysisTable {
         alert(error.message);
       }
       throw error;
+    }
+  }
+
+  async analyzeRow(row, index) {
+    try {
+      this.markRowAsProcessing(index);
+      
+      // Подготавливаем промпт с подстановкой значений
+      let filledPrompt = document.getElementById('promptTemplate').value;
+      Object.entries(row).forEach(([key, value]) => {
+        filledPrompt = filledPrompt.replace(new RegExp(`{{${key}}}`, 'g'), value || '');
+      });
+
+      // Получаем ответ от модели
+      const response = await this.settings.analysisProvider.generateResponse(filledPrompt);
+
+      try {
+        // Извлекаем JSON из ответа
+        const jsonStr = this.extractJsonFromResponse(response);
+        // Пытаемся распарсить JSON
+        const result = JSON.parse(jsonStr);
+        
+        // Обновляем ячейки результатов
+        Object.entries(result).forEach(([key, value], colIndex) => {
+          this.updateCell(index, colIndex + 1, value);
+        });
+
+        return result;
+      } catch (parseError) {
+        console.error('Raw response:', response);
+        console.error('Parse error:', parseError);
+        throw new Error(`Failed to parse model response as JSON: ${parseError.message}`);
+      }
+    } catch (error) {
+      console.error(`Error in analyzeRow(${index}):`, error);
+      this.markRowAsError(index, error);
+      throw error;
+    }
+  }
+
+  // Добавляем метод для извлечения JSON из ответа
+  extractJsonFromResponse(response) {
+    try {
+      // Убираем markdown-обертки для кода
+      let jsonStr = response.replace(/```(json)?/g, '').trim();
+      
+      // Находим первую { и последнюю }
+      const startIdx = jsonStr.indexOf('{');
+      const endIdx = jsonStr.lastIndexOf('}');
+      
+      if (startIdx === -1 || endIdx === -1) {
+        throw new Error('No JSON object found in response');
+      }
+      
+      // Извлекаем только JSON-часть
+      jsonStr = jsonStr.substring(startIdx, endIdx + 1);
+      
+      // Заменяем некорректные кавычки если есть
+      jsonStr = jsonStr.replace(/[""]/g, '"');
+      
+      // Удаляем возможные экранированные переносы строк
+      jsonStr = jsonStr.replace(/\\n/g, ' ');
+      
+      // Удаляем комментарии если есть
+      jsonStr = jsonStr.replace(/\/\/.*/g, '');
+      
+      return jsonStr;
+    } catch (error) {
+      console.error('Error extracting JSON:', error);
+      throw new Error(`Failed to extract JSON from response: ${error.message}`);
     }
   }
 
@@ -992,6 +1077,16 @@ export class AnalysisTable {
     this.updateRow(rowIndex, result);
   }
 
+  // Добавляем метод обновления настроек
+  updateSettings(settings) {
+    this.settings = settings;
+    if (settings?.analysisProvider) {
+      console.log('Analysis provider updated:', settings.analysisProvider.name);
+    } else {
+      console.warn('No analysis provider in settings');
+    }
+  }
+
   // Модифицируем метод подготовки данных для экспорта
   prepareDataForExport() {
     return this.data.map((row, index) => ({
@@ -999,31 +1094,5 @@ export class AnalysisTable {
       ...this.getAnalysisResults(index),
       Selected: this.rowMarks[index] || 'false',
     }));
-  }
-
-  async processRow(row, index) {
-    try {
-      this.markRowAsProcessing(index);
-      
-      // Собираем данные из ячеек, используя полные значения
-      const rowData = {};
-      const cells = this.table.rows[index + 1].cells;
-      for (let i = 1; i < cells.length - this.columns.length; i++) {
-        const cell = cells[i];
-        rowData[`col${i}`] = cell.textContent; // Используем полный текст
-      }
-
-      // Заменяем плейсхолдеры в промпте
-      let filledPrompt = document.getElementById('promptTemplate').value;
-      Object.entries(rowData).forEach(([key, value]) => {
-        filledPrompt = filledPrompt.replace(new RegExp(`{{${key}}}`, 'g'), value);
-      });
-
-      const result = await this.analysisProvider.generateResponse(filledPrompt);
-      this.updateRow(index, result);
-    } catch (error) {
-      console.error(`Error processing row ${index}:`, error);
-      this.markRowAsError(index, error);
-    }
   }
 }
